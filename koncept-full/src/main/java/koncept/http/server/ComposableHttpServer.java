@@ -17,7 +17,7 @@ import koncept.sp.ProcSplit;
 import koncept.sp.pipe.ProcPipe;
 import koncept.sp.pipe.SingleExecutorProcPipe;
 import koncept.sp.resource.CleanableResource;
-import koncept.sp.resource.ProcTerminator;
+import koncept.sp.resource.SimpleProcTerminator;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -95,7 +95,7 @@ public class ComposableHttpServer extends HttpServer {
 				new ContextLookupStage(contexts),
 				new ExecHandlerStage()
 		),
-		(ProcTerminator)null);
+		new SimpleProcTerminator(null));
 
 		executor.execute(new RebindServerSocketAcceptor());
 	}
@@ -147,8 +147,7 @@ public class ComposableHttpServer extends HttpServer {
 				if (!stopRequested.get())
 					executor.execute(this);
 			} catch (IOException e) {
-				if (stopRequested.get() && e.getMessage().equals("Socket closed"))
-					return; //not really an error.
+				if (ss.isClosed()) return; //socket closed... not actually an error
 				throw new RuntimeException(e);
 			}
 		}
@@ -161,9 +160,10 @@ public class ComposableHttpServer extends HttpServer {
 		}
 		public void clean() {
 			try {
-				System.out.println("closing socket");
-				s.getOutputStream().flush();
-				s.close();
+				if (!s.isClosed()) {
+					s.getOutputStream().flush();
+					s.close();
+				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}

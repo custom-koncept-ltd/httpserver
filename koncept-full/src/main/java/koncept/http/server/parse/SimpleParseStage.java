@@ -28,6 +28,7 @@ public class SimpleParseStage implements SplitProcStage {
 		BufferedReader bIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		String line = bIn.readLine();
 		//parse GET
+		while (line.equals("")) line = bIn.readLine(); //skip blank lines
 		String operation[] = line.split(" ");
 		String httpType = operation.length == 3 ? operation[2] : "??"; //TODO
 		HttpExchangeImpl exchange = new HttpExchangeImpl(socket, httpType, operation[0], new URI(operation[1]));
@@ -48,6 +49,14 @@ public class SimpleParseStage implements SplitProcStage {
 
 			line = bIn.readLine();
 		}
+		
+		// --> see a 'ServerImpl' for how this is implemented
+//		if (exp != null && exp.equalsIgnoreCase ("100-continue")) {
+//      logReply (100, requestLine, null);
+//      sendReply (
+//          Code.HTTP_CONTINUE, false, null
+//      );
+//  }
 		
 		return exchange;
 		} catch (IOException e) {
