@@ -45,8 +45,6 @@ public class ContextTest extends HttpServerTestParameteriser {
 		assertThat(context2.getPath(), is("/2/"));
 		assertThat(context22.getPath(), is("/2/2/"));
 		
-		server.start();
-		
 		assertThat(simpleUrl("/"), is(200));
 		assertThat(rootHandler.uris.size(), is(1));
 		
@@ -86,7 +84,6 @@ public class ContextTest extends HttpServerTestParameteriser {
 	
 	@Test
 	public void errorInHttpHandler() {
-		server.start();
 		server.createContext("/", new ExceptingHttpHandler());
 		try {
 			simpleUrl("/");

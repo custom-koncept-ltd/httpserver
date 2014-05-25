@@ -26,6 +26,7 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized.Parameters;
 
+import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -79,6 +80,8 @@ public abstract class HttpServerTestParameteriser {
 		
 		executor = Executors.newFixedThreadPool(getThreadPoolSize());
 		server.setExecutor(executor); //currently can't have just a single thread Executor
+		
+		server.start();
 	}
 	
 	@After
@@ -135,6 +138,21 @@ public abstract class HttpServerTestParameteriser {
 			
 			exchange.sendResponseHeaders(200, 0);
 			exchange.close(); //shouldn't this be automatic?
+		}
+	}
+	
+	public static class RecordingFilter extends Filter {
+		public final List<String> uris = Collections.synchronizedList(new ArrayList<String>());
+		public volatile URI lastUri;
+		@Override
+		public String description() {
+			return "RecordingFilter";
+		}
+		@Override
+		public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
+			uris.add(exchange.getRequestURI().toString());
+			lastUri = exchange.getRequestURI();
+			chain.doFilter(exchange);
 		}
 	}
 }

@@ -21,7 +21,7 @@ public class StartAndStopTest extends HttpServerTestParameteriser {
 		RecordingHandler handler = new RecordingHandler();
 		server.createContext("/", handler);
 		
-		server.start();
+//		server.start(); //server is auto started
 		
 		assertThat(simpleUrl("/"), is(200));
 		assertThat(handler.uris.size(), is(1));

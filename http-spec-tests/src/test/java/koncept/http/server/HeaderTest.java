@@ -28,8 +28,6 @@ public class HeaderTest extends HttpServerTestParameteriser {
 	public void headerHandling() throws IOException {
 		RecordingHandler handler = new RecordingHandler();
 		server.createContext("/", handler);
-		server.start();
-		
 		
 //		System.out.println("\n\n" + server.getClass().getName());
 		assertThat(simpleUrlWithCustomHeaders("/"), is(200));

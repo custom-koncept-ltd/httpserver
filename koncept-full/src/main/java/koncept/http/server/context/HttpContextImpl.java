@@ -3,6 +3,7 @@ package koncept.http.server.context;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import koncept.http.server.ComposableHttpServer;
 
@@ -17,13 +18,16 @@ public class HttpContextImpl extends HttpContext {
 	private final ComposableHttpServer server;
 	private final String path;
 	private final Map<String, Object> attributes;
+	private final List<Filter> filters;
 	
 	private HttpHandler handler;
+	private Authenticator authenticator;
 	
 	public HttpContextImpl(ComposableHttpServer server, String path) {
 		this.server = server;
 		this.path = path;
 		attributes = new HashMap<String, Object>();
+		filters = new CopyOnWriteArrayList<>();
 	}
 	
 	
@@ -54,20 +58,19 @@ public class HttpContextImpl extends HttpContext {
 
 	@Override
 	public List<Filter> getFilters() {
-		// TODO Auto-generated method stub
-		return null;
+		return filters;
 	}
 
 	@Override
 	public Authenticator setAuthenticator(Authenticator auth) {
-		// TODO Auto-generated method stub
-		return null;
+		Authenticator previous = authenticator;
+		authenticator = auth;
+		return previous;
 	}
 
 	@Override
 	public Authenticator getAuthenticator() {
-		// TODO Auto-generated method stub
-		return null;
+		return authenticator;
 	}
 
 }
