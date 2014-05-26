@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
+import koncept.http.server.exchange.ExecFilterStage;
 import koncept.http.server.exchange.ExecHandlerStage;
 import koncept.http.server.parse.SimpleParseStage;
 import koncept.sp.ProcSplit;
@@ -93,6 +94,7 @@ public class ComposableHttpServer extends HttpServer {
 		processor = new SingleExecutorProcPipe(executor, Arrays.asList(
 				new SimpleParseStage(), 
 				new ContextLookupStage(contexts),
+				new ExecFilterStage(),
 				new ExecHandlerStage()
 		),
 		new SimpleProcTerminator(null));

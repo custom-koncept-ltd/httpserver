@@ -20,7 +20,6 @@ public class SimpleParseStage implements SplitProcStage {
 		Socket in = (Socket)last.get(ProcSplit.DEFAULT_VALUE_KEY);
 		HttpExchange exchange = parse(in);
 		return last.add("HttpExchange", new SimpleCleanableResource(exchange, null));
-//		return new ProcSplit(new SimpleCleanableResource(exchange, null));
 	}
 	
 	public HttpExchange parse(Socket socket) {
@@ -35,7 +34,9 @@ public class SimpleParseStage implements SplitProcStage {
 		
 		//handle headers
 		line = bIn.readLine();
+		System.out.println();
 		while(line != null && !line.equals("")) {
+//			System.out.println("server read:: " + line);
 			int index = line.indexOf(":");
 			if (index == -1) {
 				exchange.getRequestHeaders().add(line, "");

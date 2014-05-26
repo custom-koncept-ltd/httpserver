@@ -3,6 +3,7 @@ package koncept.http.server.context;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.sun.net.httpserver.Authenticator;
 import com.sun.net.httpserver.Filter;
@@ -10,18 +11,21 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-public class HttpContextImpl extends HttpContext {
+public class HttpContextImpl<T extends HttpServer> extends HttpContext {
 
-	private final HttpServer server;
+	private final T server;
 	private final String path;
 	private final Map<String, Object> attributes;
+	private final List<Filter> filters;
 	
 	private HttpHandler handler;
+	private Authenticator authenticator;
 	
-	public HttpContextImpl(HttpServer server, String path) {
+	public HttpContextImpl(T server, String path) {
 		this.server = server;
 		this.path = path;
 		attributes = new HashMap<String, Object>();
+		filters = new CopyOnWriteArrayList<>();
 	}
 	
 	
@@ -41,7 +45,7 @@ public class HttpContextImpl extends HttpContext {
 	}
 
 	@Override
-	public HttpServer getServer() {
+	public T getServer() {
 		return server;
 	}
 
@@ -52,20 +56,19 @@ public class HttpContextImpl extends HttpContext {
 
 	@Override
 	public List<Filter> getFilters() {
-		// TODO Auto-generated method stub
-		return null;
+		return filters;
 	}
 
 	@Override
 	public Authenticator setAuthenticator(Authenticator auth) {
-		// TODO Auto-generated method stub
-		return null;
+		Authenticator previous = authenticator;
+		authenticator = auth;
+		return previous;
 	}
 
 	@Override
 	public Authenticator getAuthenticator() {
-		// TODO Auto-generated method stub
-		return null;
+		return authenticator;
 	}
 
 }

@@ -45,40 +45,40 @@ public class ContextTest extends HttpServerTestParameteriser {
 		assertThat(context2.getPath(), is("/2/"));
 		assertThat(context22.getPath(), is("/2/2/"));
 		
-		assertThat(simpleUrl("/"), is(200));
+		assertThat(simpleUrl("/"), is(Code.HTTP_OK));
 		assertThat(rootHandler.uris.size(), is(1));
 		
-		assertThat(simpleUrl("/1"), is(200));
+		assertThat(simpleUrl("/1"), is(Code.HTTP_OK));
 		assertThat(handler1.uris.size(), is(1));
 		
-		assertThat(simpleUrl("/11"), is(200));
+		assertThat(simpleUrl("/11"), is(Code.HTTP_OK));
 		assertThat(handler1.uris.size(), is(2));
 		
-		assertThat(simpleUrl("/1/"), is(200));
+		assertThat(simpleUrl("/1/"), is(Code.HTTP_OK));
 		assertThat(handler1.uris.size(), is(3));
 		
-		assertThat(simpleUrl("/1/1"), is(200));
+		assertThat(simpleUrl("/1/1"), is(Code.HTTP_OK));
 		assertThat(handler1.uris.size(), is(4));
 		
-		assertThat(simpleUrl("/2"), is(200)); //no trailing slash
+		assertThat(simpleUrl("/2"), is(Code.HTTP_OK)); //no trailing slash
 		assertThat(rootHandler.uris.size(), is(2));
 		
-		assertThat(simpleUrl("/2/"), is(200));
+		assertThat(simpleUrl("/2/"), is(Code.HTTP_OK));
 		assertThat(handler2.uris.size(), is(1));
 		
-		assertThat(simpleUrl("/2/2"), is(200));
+		assertThat(simpleUrl("/2/2"), is(Code.HTTP_OK));
 		assertThat(handler2.uris.size(), is(2));
 		
-		assertThat(simpleUrl("/2/22"), is(200));
+		assertThat(simpleUrl("/2/22"), is(Code.HTTP_OK));
 		assertThat(handler2.uris.size(), is(3));
 		
-		assertThat(simpleUrl("/2/2/"), is(200));
+		assertThat(simpleUrl("/2/2/"), is(Code.HTTP_OK));
 		assertThat(handler22.uris.size(), is(1));
 		
-		assertThat(simpleUrl("/2/2/2"), is(200));
+		assertThat(simpleUrl("/2/2/2"), is(Code.HTTP_OK));
 		assertThat(handler22.uris.size(), is(2));
 		
-		assertThat(simpleUrl("/3"), is(200));
+		assertThat(simpleUrl("/3"), is(Code.HTTP_OK));
 		assertThat(rootHandler.uris.size(), is(3));
 	}
 	

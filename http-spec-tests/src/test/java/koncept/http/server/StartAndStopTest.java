@@ -23,7 +23,7 @@ public class StartAndStopTest extends HttpServerTestParameteriser {
 		
 //		server.start(); //server is auto started
 		
-		assertThat(simpleUrl("/"), is(200));
+		assertThat(simpleUrl("/"), is(Code.HTTP_OK));
 		assertThat(handler.uris.size(), is(1));
 		
 		server.stop(0);

@@ -7,8 +7,16 @@ import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URI;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
+
+import koncept.http.server.Code;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
@@ -31,6 +39,9 @@ public class HttpExchangeImpl extends HttpExchange {
 	private Map<String, Object> attribues = new HashMap<String, Object>();
 	private InputStream in;
 	private OutputStream out;
+	
+	private HttpPrincipal principal;
+	private int responseCode = 0;
 	
 	public HttpExchangeImpl(Socket socket, String httpVersion, String requestMethod, URI requestURI) throws IOException {
 		this.socket = socket;
@@ -87,25 +98,50 @@ public class HttpExchangeImpl extends HttpExchange {
 		return out;
 	}
 
+	//TODO: Need a way to manage the auto headers better
 	@Override
 	public void sendResponseHeaders(int rCode, long responseLength)
 			throws IOException {
 //		HTTP/1.1 200 OK
-
+		responseCode = rCode;
 		PrintStream p = new PrintStream(out);
-		p.print(httpVersion + " " + rCode + " " + " OK"); //need a lookup on that
+		p.print(httpVersion + " " + rCode + Code.msg(rCode));
+		p.print("\r\n");
+		
+		//insert a content length header
+		if (responseLength != 0 && !"head".equalsIgnoreCase(getRequestMethod())) {
+			responseHeaders.set("Content-length", Long.toString(responseLength== -1 ? 0 : responseLength));
+		}
+		
+		String pattern = "EEE, dd MMM yyyy HH:mm:ss zzz";
+	    TimeZone gmtTZ = TimeZone.getTimeZone("GMT");
+	    DateFormat df = new SimpleDateFormat(pattern, Locale.US);
+	    df.setTimeZone(gmtTZ);
+		responseHeaders.set ("Date", df.format (new Date()));
+		
+		
+		//responseHeaders
+		for(String headerName: responseHeaders.keySet()) {
+			List<String> headerValues = responseHeaders.get(headerName);
+			for(String headerValue: headerValues) {
+				p.print(headerName);
+				p.print(": ");
+				p.print(headerValue);
+				p.print("\r\n");
+			}
+		}
+		p.print("\r\n");
 		p.flush();
 	}
-
+	
 	@Override
 	public InetSocketAddress getRemoteAddress() {
-		return new InetSocketAddress(socket.getInetAddress(), socket.getPort());
+		return new InetSocketAddress(socket.getInetAddress(), socket.getPort()); 
 	}
 
 	@Override
 	public int getResponseCode() {
-		// TODO Auto-generated method stub
-		return 0;
+		return responseCode;
 	}
 
 	@Override
@@ -114,9 +150,8 @@ public class HttpExchangeImpl extends HttpExchange {
 	}
 
 	@Override
-	public String getProtocol() {
-		// TODO Auto-generated method stub
-		return null;
+	public String getProtocol() { //request protocol
+		return httpVersion;
 	}
 
 	@Override
@@ -137,8 +172,11 @@ public class HttpExchangeImpl extends HttpExchange {
 
 	@Override
 	public HttpPrincipal getPrincipal() {
-		// TODO Auto-generated method stub
-		return null;
+		return principal;
+	}
+	
+	public void setPrincipal(HttpPrincipal principal) {
+		this.principal = principal;
 	}
 
 	

@@ -136,7 +136,7 @@ public abstract class HttpServerTestParameteriser {
 			lastUri = exchange.getRequestURI();
 			lastRequestMethod = exchange.getRequestMethod();
 			
-			exchange.sendResponseHeaders(200, 0);
+			exchange.sendResponseHeaders(Code.HTTP_OK, -1);
 			exchange.close(); //shouldn't this be automatic?
 		}
 	}

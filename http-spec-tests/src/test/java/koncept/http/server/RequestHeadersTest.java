@@ -18,9 +18,9 @@ import org.junit.Test;
 
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class HeaderTest extends HttpServerTestParameteriser {
+public class RequestHeadersTest extends HttpServerTestParameteriser {
 
-	public HeaderTest(HttpServerProvider provider) {
+	public RequestHeadersTest(HttpServerProvider provider) {
 		super(provider);
 	}
 
@@ -30,7 +30,7 @@ public class HeaderTest extends HttpServerTestParameteriser {
 		server.createContext("/", handler);
 		
 //		System.out.println("\n\n" + server.getClass().getName());
-		assertThat(simpleUrlWithCustomHeaders("/"), is(200));
+		assertThat(simpleUrlWithCustomHeaders("/"), is(Code.HTTP_OK));
 		Map<String, List<String>> headers = handler.lastHeaders;
 		for(String headerName: headers.keySet()) {
 			List<String> values = headers.get(headerName);
