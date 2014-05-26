@@ -1,15 +1,12 @@
 package koncept.http.server.exchange;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
 import koncept.sp.ProcSplit;
 import koncept.sp.resource.SimpleCleanableResource;
 import koncept.sp.stage.SplitProcStage;
-import sun.net.httpserver.AuthFilter;
 
 import com.sun.net.httpserver.Authenticator;
 import com.sun.net.httpserver.Authenticator.Result;
@@ -63,16 +60,6 @@ public class ExecFilterStage implements SplitProcStage {
 		public CustomAuthFilter(Authenticator authenticator) {
 			this.authenticator = authenticator;
 		}
-		public void consumeInput (HttpExchange t) throws IOException {	
-//			BufferedReader bIn = new BufferedReader(new InputStreamReader(t.getRequestBody()));
-//			if (t.getRequestBody().available() == 0) return;
-//			String line = bIn.readLine();
-//			while(line != null && !line.equals("")) {
-//				System.out.println("consuming " + line);
-//				if (t.getRequestBody().available() == 0) return;
-//				line = bIn.readLine();
-//			}
-	    }
 		@Override
 		public String description() {
 			return "CustomAuthFilter";
@@ -89,27 +76,14 @@ public class ExecFilterStage implements SplitProcStage {
 					((HttpExchangeImpl)exchange).setPrincipal(principal);
 					chain.doFilter(exchange);	
 				} else if (result instanceof Authenticator.Failure) {
-					consumeInput(exchange);
 					exchange.sendResponseHeaders(((Authenticator.Failure) result).getResponseCode(), -1);
 					exchange.close();
 				} else if (result instanceof Authenticator.Retry) {
-					consumeInput(exchange);
 					exchange.sendResponseHeaders(((Authenticator.Retry) result).getResponseCode(), -1);
 					exchange.close();
 				}
 			}
 		}
-	}
-	
-	private static class CustomAuthFilter2 extends AuthFilter {
-		public CustomAuthFilter2(Authenticator authenticator) {
-			super(authenticator);
-		}
-		@Override
-		public void consumeInput(HttpExchange t) throws IOException {
-//			t.getRequestBody().close();
-		}
-		
 	}
 	
 }

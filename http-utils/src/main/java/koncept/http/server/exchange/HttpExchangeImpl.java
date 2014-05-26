@@ -10,10 +10,8 @@ import java.net.URI;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TimeZone;
 
 import koncept.http.server.Code;
@@ -25,6 +23,7 @@ import com.sun.net.httpserver.HttpPrincipal;
 
 
 public class HttpExchangeImpl extends HttpExchange {
+	private static final String newLine = "\r\n".intern();
 	private final Socket socket;
 	
 	private final String httpVersion;
@@ -36,7 +35,6 @@ public class HttpExchangeImpl extends HttpExchange {
 	
 	private HttpContext httpContext;
 	
-	private Map<String, Object> attribues = new HashMap<String, Object>();
 	private InputStream in;
 	private OutputStream out;
 	
@@ -98,6 +96,15 @@ public class HttpExchangeImpl extends HttpExchange {
 		return out;
 	}
 
+	public void sendPreviewCode(int rCode) {
+		PrintStream p = new PrintStream(out);
+		p.print(httpVersion + " " + rCode + Code.msg(rCode));
+		p.print(newLine);
+//		p.print("Content-length: 0"); //?? seems this is part of the reply (!!)
+		p.print(newLine);
+		p.flush();
+	}
+	
 	//TODO: Need a way to manage the auto headers better
 	@Override
 	public void sendResponseHeaders(int rCode, long responseLength)
@@ -106,7 +113,7 @@ public class HttpExchangeImpl extends HttpExchange {
 		responseCode = rCode;
 		PrintStream p = new PrintStream(out);
 		p.print(httpVersion + " " + rCode + Code.msg(rCode));
-		p.print("\r\n");
+		p.print(newLine);
 		
 		//insert a content length header
 		if (responseLength != 0 && !"head".equalsIgnoreCase(getRequestMethod())) {
@@ -127,10 +134,10 @@ public class HttpExchangeImpl extends HttpExchange {
 				p.print(headerName);
 				p.print(": ");
 				p.print(headerValue);
-				p.print("\r\n");
+				p.print(newLine);
 			}
 		}
-		p.print("\r\n");
+		p.print(newLine);
 		p.flush();
 	}
 	
@@ -156,12 +163,12 @@ public class HttpExchangeImpl extends HttpExchange {
 
 	@Override
 	public Object getAttribute(String name) {
-		return attribues.get(name);
+		return httpContext.getAttributes().get(name);
 	}
 
 	@Override
 	public void setAttribute(String name, Object value) {
-		attribues.put(name, value);
+		httpContext.getAttributes().put(name, value);
 	}
 
 	@Override

@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import koncept.http.server.Code;
 import koncept.http.server.exchange.HttpExchangeImpl;
 import koncept.sp.ProcSplit;
 import koncept.sp.resource.SimpleCleanableResource;
@@ -50,15 +51,10 @@ public class SimpleParseStage implements SplitProcStage {
 
 			line = bIn.readLine();
 		}
-		
-		// --> see a 'ServerImpl' for how this is implemented
-//		if (exp != null && exp.equalsIgnoreCase ("100-continue")) {
-//      logReply (100, requestLine, null);
-//      sendReply (
-//          Code.HTTP_CONTINUE, false, null
-//      );
-//  }
-		
+		String expect100 = exchange.getRequestHeaders().getFirst("Expect");
+		if (expect100 != null && expect100.equals("100-continue")) {
+			exchange.sendPreviewCode(Code.HTTP_CONTINUE);
+		}
 		return exchange;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
