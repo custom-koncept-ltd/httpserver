@@ -17,7 +17,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class ResponseHeadersTest extends HttpServerTestParameteriser {
+public class ResponseHeadersTest extends ProviderSpecHttpServerTestParameteriser {
 
 	public ResponseHeadersTest(HttpServerProvider provider) {
 		super(provider);

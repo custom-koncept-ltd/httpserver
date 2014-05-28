@@ -15,7 +15,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
 
-public class ContextTest extends HttpServerTestParameteriser {
+public class ContextTest extends ProviderSpecHttpServerTestParameteriser {
 
 	public ContextTest(HttpServerProvider provider) {
 		super(provider);

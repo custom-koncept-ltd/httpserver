@@ -18,7 +18,7 @@ import org.junit.Test;
 
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class RequestHeadersTest extends HttpServerTestParameteriser {
+public class RequestHeadersTest extends ProviderSpecHttpServerTestParameteriser {
 
 	public RequestHeadersTest(HttpServerProvider provider) {
 		super(provider);

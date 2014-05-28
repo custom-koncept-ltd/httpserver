@@ -4,15 +4,14 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 import koncept.http.server.ComposableHttpServer;
+import koncept.http.server.ConfigurableHttpServer;
+import koncept.http.server.ConfigurableHttpServerProvider;
+import koncept.http.server.ConfigurableHttpsServer;
 
-import com.sun.net.httpserver.HttpServer;
-import com.sun.net.httpserver.HttpsServer;
-import com.sun.net.httpserver.spi.HttpServerProvider;
-
-public class KonceptHttpServerProvider extends HttpServerProvider {
+public class KonceptHttpServerProvider extends ConfigurableHttpServerProvider {
 
 	@Override
-	public HttpServer createHttpServer(InetSocketAddress addr, int backlog)
+	public ConfigurableHttpServer createHttpServer(InetSocketAddress addr, int backlog)
 			throws IOException {
 		ComposableHttpServer server = new ComposableHttpServer();
 		server.bind(addr, backlog);
@@ -20,7 +19,7 @@ public class KonceptHttpServerProvider extends HttpServerProvider {
 	}
 	
 	@Override
-	public HttpsServer createHttpsServer(InetSocketAddress addr, int backlog)
+	public ConfigurableHttpsServer createHttpsServer(InetSocketAddress addr, int backlog)
 			throws IOException {
 		throw new UnsupportedOperationException();
 	}

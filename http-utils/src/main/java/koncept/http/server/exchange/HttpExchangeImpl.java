@@ -12,9 +12,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 
 import koncept.http.server.Code;
+import koncept.http.server.ConfigurationOption;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
@@ -23,17 +26,19 @@ import com.sun.net.httpserver.HttpPrincipal;
 
 
 public class HttpExchangeImpl extends HttpExchange {
+	public static final ConfigurationOption ATTRIBUTE_SCOPE = new ConfigurationOption("httpexchange.attribute.scoping", new String[]{"context", "exchange"});
+	
 	private static final String newLine = "\r\n".intern();
 	private final Socket socket;
 	
 	private final String httpVersion;
 	private final String requestMethod;
 	private final URI requestURI;
+	private final HttpContext httpContext;
+	private final Map<String,Object> attributes;
 	
 	private final Headers requestHeaders = new Headers();
 	private final Headers responseHeaders = new Headers();
-	
-	private HttpContext httpContext;
 	
 	private InputStream in;
 	private OutputStream out;
@@ -41,12 +46,21 @@ public class HttpExchangeImpl extends HttpExchange {
 	private HttpPrincipal principal;
 	private int responseCode = 0;
 	
-	public HttpExchangeImpl(Socket socket, String httpVersion, String requestMethod, URI requestURI) throws IOException {
+	public HttpExchangeImpl(Socket socket, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
 		this.socket = socket;
 		setStreams(socket.getInputStream(), socket.getOutputStream());
 		this.httpVersion = httpVersion;
 		this.requestMethod = requestMethod;
 		this.requestURI = requestURI;
+		this.httpContext = httpContext;
+		
+		String option = options.get(ATTRIBUTE_SCOPE);
+		 if (option.equals("exchange")) {
+			 attributes = new ConcurrentHashMap<String, Object>();
+		 } else if (option.equals("context")) {
+			 attributes = httpContext.getAttributes();
+		 } else throw new IllegalStateException("Unknown scope: " + option);
+		
 	}
 	
 	@Override
@@ -72,9 +86,6 @@ public class HttpExchangeImpl extends HttpExchange {
 	@Override
 	public HttpContext getHttpContext() {
 		return httpContext;
-	}
-	public void setHttpContext(HttpContext httpContext) {
-		this.httpContext = httpContext;
 	}
 
 	@Override
@@ -163,12 +174,12 @@ public class HttpExchangeImpl extends HttpExchange {
 
 	@Override
 	public Object getAttribute(String name) {
-		return httpContext.getAttributes().get(name);
+		return attributes.get(name);
 	}
 
 	@Override
 	public void setAttribute(String name, Object value) {
-		httpContext.getAttributes().put(name, value);
+		attributes.put(name, value);
 	}
 
 	@Override

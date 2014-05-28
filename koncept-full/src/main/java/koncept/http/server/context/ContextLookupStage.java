@@ -1,12 +1,11 @@
 package koncept.http.server.context;
 
-import koncept.http.server.exchange.HttpExchangeImpl;
+import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.sp.ProcSplit;
 import koncept.sp.resource.SimpleCleanableResource;
 import koncept.sp.stage.SplitProcStage;
 
 import com.sun.net.httpserver.HttpContext;
-import com.sun.net.httpserver.HttpHandler;
 
 public class ContextLookupStage implements SplitProcStage {
 
@@ -17,11 +16,10 @@ public class ContextLookupStage implements SplitProcStage {
 	}
 	
 	public ProcSplit run(ProcSplit last) {
-		HttpExchangeImpl exchange = (HttpExchangeImpl)last.get("HttpExchange");
-		HttpContext httpContext = contexts.findContext(exchange.getRequestURI().toString());
+		String requestLine = (String)last.get(ReadRequestLineStage.RequestLine);
+		String operation[] = requestLine.split(" ");
+		HttpContext httpContext = contexts.findContext(operation[1]);//use the URL part to look up the http context
 		if (httpContext != null && httpContext.getHandler() != null) {
-			HttpHandler handler = httpContext.getHandler();
-			exchange.setHttpContext(httpContext);
 			last.add("HttpContext", new SimpleCleanableResource(httpContext, null));
 		}
 		return last;

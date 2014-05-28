@@ -14,7 +14,7 @@ import org.junit.Test;
 
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class Expect100ContinueTest extends HttpServerTestParameteriser {
+public class Expect100ContinueTest extends ProviderSpecHttpServerTestParameteriser {
 
 	public Expect100ContinueTest(HttpServerProvider provider) {
 		super(provider);

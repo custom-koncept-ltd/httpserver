@@ -27,30 +27,46 @@ package koncept.http.sun.net.httpserver;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
-import koncept.http.LegacyModHttpConfigurable;
-import koncept.http.LegacyModHttpConfiguration;
+import koncept.http.server.ConfigurableHttpServer;
+import koncept.http.server.ConfigurationOption;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 
-public class HttpServerImpl extends HttpServer implements LegacyModHttpConfigurable {
+public class HttpServerImpl extends ConfigurableHttpServer {
 
     ServerImpl server;
-    LegacyModHttpConfiguration httpConfiguration = new LegacyModHttpConfiguration();
+    private final Map<ConfigurationOption, String> options = new ConcurrentHashMap<ConfigurationOption, String>();
 
     public HttpServerImpl () throws IOException {
         this (new InetSocketAddress(80), 0);
     }
 
-    public HttpServerImpl (
-        InetSocketAddress addr, int backlog
-    ) throws IOException {
-        server = new ServerImpl (this, "http", addr, backlog, httpConfiguration);
+    public HttpServerImpl (InetSocketAddress addr, int backlog) throws IOException {
+    	options.put(ExchangeImpl.ATTRIBUTE_SCOPE, "");
+    	resetOptionsToDefaults();
+        server = new ServerImpl (this, "http", addr, backlog, options);
     }
 
+    @Override
+    public Map<ConfigurationOption, String> options() {
+    	return options;
+    }
+    
+    @Override
+    public void resetOptionsToDefaults() {
+    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "exchange");
+    }
+    
+    @Override
+    public void resetOptionsToJVMStandard() {
+    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "context");
+    }
+    
     public void bind (InetSocketAddress addr, int backlog) throws IOException {
         server.bind (addr, backlog);
     }
@@ -89,9 +105,5 @@ public class HttpServerImpl extends HttpServer implements LegacyModHttpConfigura
 
     public InetSocketAddress getAddress() {
         return server.getAddress();
-    }
-    
-    public LegacyModHttpConfiguration getHttpConfiguration() {
-    	return httpConfiguration;
     }
 }

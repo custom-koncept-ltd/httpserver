@@ -20,7 +20,7 @@ import com.sun.net.httpserver.BasicAuthenticator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class AuthenticationTest extends HttpServerTestParameteriser {
+public class AuthenticationTest extends ProviderSpecHttpServerTestParameteriser {
 
 	/**
 	 * the auth/challenge/response means that the filter may get hit multiple times

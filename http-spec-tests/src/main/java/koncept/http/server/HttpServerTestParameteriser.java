@@ -37,12 +37,6 @@ public abstract class HttpServerTestParameteriser {
 
 	public final HttpServerProvider provider;
 	public HttpServer server;
-	private ExecutorService executor;
-	
-	@Parameters
-	public static Collection<Object[]> data() {
-		return KnownProviders.providers();
-	}
 	
 	public HttpServerTestParameteriser(HttpServerProvider provider) {
 		this.provider = provider;
@@ -52,10 +46,12 @@ public abstract class HttpServerTestParameteriser {
 	 * Unfortunately, due to a bug in the java-provider http server (?), its possible for a server not to 
 	 * be able to close (even though it hasn't started).
 	 * 
+	 * The bug is also in the legacy-mod artifact
+	 * 
 	 * @return
 	 */
 	public int getUnboundPort() {
-		int startPort = 8080;
+		int startPort = 9000;
 		for(int i = 0; i < 999; i++) { //ugh, was hoping not to have to port scan
 			if (portAvailable(startPort + i)) {
 //				System.out.println("port " + (startPort + i));
@@ -67,29 +63,6 @@ public abstract class HttpServerTestParameteriser {
 	
 	public int getThreadPoolSize() {
 		return 5;
-	}
-	
-	
-	@Before
-	public void prepare() throws IOException {
-		if (server != null) throw new IllegalStateException("server should be null");
-		if (executor != null) throw new IllegalStateException("executor should be null");
-		
-		//Hmm... the server opens the port straight away - before any start() call is made (!!)
-		server = provider.createHttpServer(new InetSocketAddress("localhost", getUnboundPort()), 0);
-		
-		executor = Executors.newFixedThreadPool(getThreadPoolSize());
-		server.setExecutor(executor); //currently can't have just a single thread Executor
-		
-		server.start();
-	}
-	
-	@After
-	public void cleanUp() throws Exception {
-		if (server == null) throw new IllegalStateException();
-		server.stop(1); //seconds
-		if (!executor.isShutdown() && !executor.isTerminated())
-			executor.shutdownNow();
 	}
 	
 	private boolean portAvailable(int port) {

@@ -14,7 +14,7 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class FiltersTest extends HttpServerTestParameteriser {
+public class FiltersTest extends ProviderSpecHttpServerTestParameteriser {
 
 	public FiltersTest(HttpServerProvider provider) {
 		super(provider);

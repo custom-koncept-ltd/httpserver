@@ -45,6 +45,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -55,7 +56,7 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
-import koncept.http.LegacyModHttpConfiguration;
+import koncept.http.server.ConfigurationOption;
 import koncept.http.sun.net.httpserver.HttpConnection.State;
 
 import com.sun.net.httpserver.Filter;
@@ -71,7 +72,7 @@ import com.sun.net.httpserver.HttpsConfigurator;
  */
 class ServerImpl implements TimeSource {
 	
-	private LegacyModHttpConfiguration httpConfiguration;
+	private final Map<ConfigurationOption, String> options;
 
     private String protocol;
     private boolean https;
@@ -115,9 +116,9 @@ class ServerImpl implements TimeSource {
 
     ServerImpl (
         HttpServer wrapper, String protocol, InetSocketAddress addr, int backlog,
-        LegacyModHttpConfiguration httpConfiguration
+        Map<ConfigurationOption, String> options
     ) throws IOException {
-    	this.httpConfiguration = httpConfiguration;
+    	this.options = options;
         this.protocol = protocol;
         this.wrapper = wrapper;
         this.logger = Logger.getLogger ("com.sun.net.httpserver");
@@ -605,7 +606,7 @@ class ServerImpl implements TimeSource {
                     return;
                 }
                 tx = new ExchangeImpl (
-                    method, uri, req, clen, connection, httpConfiguration
+                    method, uri, req, clen, connection, options
                 );
                 String chdr = headers.getFirst("Connection");
                 Headers rheaders = tx.getResponseHeaders();

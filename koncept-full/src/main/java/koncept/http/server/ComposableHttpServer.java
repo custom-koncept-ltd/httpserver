@@ -5,6 +5,8 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,7 +15,9 @@ import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
 import koncept.http.server.exchange.ExecFilterStage;
 import koncept.http.server.exchange.ExecHandlerStage;
-import koncept.http.server.parse.SimpleParseStage;
+import koncept.http.server.exchange.HttpExchangeImpl;
+import koncept.http.server.parse.ParseHeadersStage;
+import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.sp.ProcSplit;
 import koncept.sp.pipe.ProcPipe;
 import koncept.sp.pipe.SingleExecutorProcPipe;
@@ -22,9 +26,8 @@ import koncept.sp.resource.SimpleProcTerminator;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 
-public class ComposableHttpServer extends HttpServer {
+public class ComposableHttpServer extends ConfigurableHttpServer {
 
 	private ExecutorService executor;
 	private ProcPipe processor;
@@ -33,9 +36,28 @@ public class ComposableHttpServer extends HttpServer {
 
 	private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
+	private Map<ConfigurationOption, String> options = new ConcurrentHashMap<>();
+	
 	public ComposableHttpServer() {
 		contexts = new HttpContextHolder(this);
+		options.put(HttpExchangeImpl.ATTRIBUTE_SCOPE, "");
+		resetOptionsToDefaults();
 	}
+	
+	@Override
+	public Map<ConfigurationOption, String> options() {
+		return options;
+	}
+	
+	@Override
+    public void resetOptionsToDefaults() {
+    	ConfigurationOption.set(options, HttpExchangeImpl.ATTRIBUTE_SCOPE, "exchange");
+    }
+    
+    @Override
+    public void resetOptionsToJVMStandard() {
+    	ConfigurationOption.set(options, HttpExchangeImpl.ATTRIBUTE_SCOPE, "context");
+    }
 	
 	@Override
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
@@ -92,8 +114,9 @@ public class ComposableHttpServer extends HttpServer {
 			throw new RuntimeException("Not bound to an address");
 
 		processor = new SingleExecutorProcPipe(executor, Arrays.asList(
-				new SimpleParseStage(), 
+				new ReadRequestLineStage(),
 				new ContextLookupStage(contexts),
+				new ParseHeadersStage(options),
 				new ExecFilterStage(),
 				new ExecHandlerStage()
 		),

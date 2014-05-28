@@ -10,7 +10,7 @@ import org.junit.Test;
 
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class StartAndStopTest extends HttpServerTestParameteriser {
+public class StartAndStopTest extends ProviderSpecHttpServerTestParameteriser {
 
 	public StartAndStopTest(HttpServerProvider provider) {
 		super(provider);

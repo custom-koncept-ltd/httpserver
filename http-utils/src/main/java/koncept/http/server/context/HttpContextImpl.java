@@ -1,8 +1,8 @@
 package koncept.http.server.context;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.sun.net.httpserver.Authenticator;
@@ -24,7 +24,7 @@ public class HttpContextImpl<T extends HttpServer> extends HttpContext {
 	public HttpContextImpl(T server, String path) {
 		this.server = server;
 		this.path = path;
-		attributes = new HashMap<String, Object>();
+		attributes = new ConcurrentHashMap<String, Object>();
 		filters = new CopyOnWriteArrayList<>();
 	}
 	

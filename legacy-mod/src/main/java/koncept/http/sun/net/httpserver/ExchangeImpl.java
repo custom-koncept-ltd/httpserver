@@ -36,25 +36,27 @@ import java.net.URI;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLSession;
 
-import koncept.http.LegacyModHttpConfiguration;
+import koncept.http.server.ConfigurationOption;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpPrincipal;
 
 class ExchangeImpl {
-	private LegacyModHttpConfiguration httpConfiguration;
+	private final Map<ConfigurationOption, String> options;
+	public static final String ATTRIBUTE_SCOPE_KEY = "httpexchange.attribute.scoping";
+	public static final ConfigurationOption ATTRIBUTE_SCOPE = new ConfigurationOption(ATTRIBUTE_SCOPE_KEY, new String[]{"context", "exchange"});
 	
     Headers reqHdrs, rspHdrs;
     Request req;
@@ -103,9 +105,9 @@ class ExchangeImpl {
 
     ExchangeImpl (
         String m, URI u, Request req, long len, HttpConnection connection,
-        LegacyModHttpConfiguration httpConfiguration
+        Map<ConfigurationOption, String> options
     ) throws IOException {
-    	this.httpConfiguration = httpConfiguration;
+    	this.options = options;
         this.req = req;
         this.reqHdrs = req.headers();
         this.rspHdrs = new Headers();
@@ -366,16 +368,12 @@ class ExchangeImpl {
     
     private Map<String, Object> attributes() {
     	 if (attributes == null) {
-    		 switch(httpConfiguration.getExchangeAttributeScoping()) {
-    		 case CONTEXT_LEGACY:
+    		 String option = options.get(ATTRIBUTE_SCOPE);
+    		 if (option.equals("exchange")) {
+    			 attributes = new ConcurrentHashMap<String, Object>();
+    		 } else if (option.equals("context")) {
     			 attributes = getHttpContext().getAttributes();
-    			 break;
-    		 case EXCHANGE:
-    			 attributes = new HashMap<String, Object>();
-    			 break;
-    		default:
-    			throw new IllegalStateException("Unknown scoping: " + httpConfiguration.getExchangeAttributeScoping());
-    		 }
+    		 } else throw new IllegalStateException("Unknown scope: " + option);
          }
     	 return attributes;
     }
