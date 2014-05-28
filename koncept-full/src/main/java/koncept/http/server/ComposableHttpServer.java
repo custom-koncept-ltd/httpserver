@@ -1,5 +1,7 @@
 package koncept.http.server;
 
+import static koncept.http.server.exchange.HttpExchangeImpl.ATTRIBUTE_SCOPE;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -9,13 +11,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
 import koncept.http.server.exchange.ExecFilterStage;
 import koncept.http.server.exchange.ExecHandlerStage;
-import koncept.http.server.exchange.HttpExchangeImpl;
 import koncept.http.server.parse.ParseHeadersStage;
 import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.sp.ProcSplit;
@@ -28,11 +30,11 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 
 public class ComposableHttpServer extends ConfigurableHttpServer {
-
+	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.timeout", "0", "500", "1000", "30000");
 	private ExecutorService executor;
 	private ProcPipe processor;
 	private final HttpContextHolder contexts;
-	private ServerSocket ss;
+	private ServerSocket serverSocket;
 
 	private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
@@ -40,7 +42,8 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 	
 	public ComposableHttpServer() {
 		contexts = new HttpContextHolder(this);
-		options.put(HttpExchangeImpl.ATTRIBUTE_SCOPE, "");
+		options.put(ATTRIBUTE_SCOPE, "");
+		options.put(SOCKET_TIMEOUT, "");
 		resetOptionsToDefaults();
 	}
 	
@@ -51,18 +54,20 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 	
 	@Override
     public void resetOptionsToDefaults() {
-    	ConfigurationOption.set(options, HttpExchangeImpl.ATTRIBUTE_SCOPE, "exchange");
+    	ConfigurationOption.set(options, ATTRIBUTE_SCOPE, "exchange");
+    	ConfigurationOption.set(options, SOCKET_TIMEOUT, "500");
     }
     
     @Override
     public void resetOptionsToJVMStandard() {
-    	ConfigurationOption.set(options, HttpExchangeImpl.ATTRIBUTE_SCOPE, "context");
+    	ConfigurationOption.set(options, ATTRIBUTE_SCOPE, "context");
+    	ConfigurationOption.set(options, SOCKET_TIMEOUT, "500");
     }
 	
 	@Override
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
 		// TODO: check for running and rebindind
-		ss = new ServerSocket(addr.getPort(), backlog, addr.getAddress());
+		serverSocket = new ServerSocket(addr.getPort(), backlog, addr.getAddress());
 	}
 
 	@Override
@@ -77,7 +82,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 
 	@Override
 	public InetSocketAddress getAddress() {
-		return new InetSocketAddress(ss.getInetAddress(), ss.getLocalPort());
+		return new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
 	}
 
 	@Override
@@ -110,7 +115,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		if (executor == null)
 			throw new RuntimeException("No Executor to run in");
 
-		if (ss == null)
+		if (serverSocket == null)
 			throw new RuntimeException("Not bound to an address");
 
 		processor = new SingleExecutorProcPipe(executor, Arrays.asList(
@@ -122,7 +127,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		),
 		new SimpleProcTerminator(null));
 
-		executor.execute(new RebindServerSocketAcceptor());
+		executor.execute(new RebindServerSocketAcceptor(serverSocket));
 	}
 
 	/*
@@ -145,30 +150,26 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 			throw new IllegalArgumentException(); // -ve numbers are invalid
 		try {
 			stopRequested.set(true);
-			ss.close();
+			serverSocket.close();
+			if (secondsDelay != 0) 
+				executor.awaitTermination(secondsDelay, TimeUnit.SECONDS);
 		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private class LoopedThreadServerSocketAcceptor implements Runnable {
-		public void run() {
-			while (!stopRequested.get()) {
-				try {
-					Socket s = ss.accept();
-					processor.submit(new ProcSplit(new SocketResource(s)));
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			}
-		}
-	}
-
 	private class RebindServerSocketAcceptor implements Runnable {
+		private final ServerSocket ss;
+		public RebindServerSocketAcceptor(ServerSocket ss) {
+			this.ss = ss;
+		}
 		public void run() {
 			try {
 				Socket s = ss.accept();
-				s.setSoTimeout(500);
+				Integer timeout = new Integer(options.get(SOCKET_TIMEOUT));
+				s.setSoTimeout(timeout);
 				processor.submit(new ProcSplit(new SocketResource(s)));
 				if (!stopRequested.get())
 					executor.execute(this);
