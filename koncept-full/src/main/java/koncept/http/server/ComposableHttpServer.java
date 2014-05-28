@@ -168,6 +168,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		public void run() {
 			try {
 				Socket s = ss.accept();
+				s.setSoTimeout(500);
 				processor.submit(new ProcSplit(new SocketResource(s)));
 				if (!stopRequested.get())
 					executor.execute(this);
