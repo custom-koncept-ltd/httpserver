@@ -24,13 +24,14 @@ import koncept.sp.ProcSplit;
 import koncept.sp.pipe.ProcPipe;
 import koncept.sp.pipe.SingleExecutorProcPipe;
 import koncept.sp.resource.CleanableResource;
+import koncept.sp.resource.SimpleCleanableResource;
 import koncept.sp.resource.SimpleProcTerminator;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 
 public class ComposableHttpServer extends ConfigurableHttpServer {
-	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.timeout", "0", "500", "1000", "30000");
+	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.timeout", "-1", "0", "500", "1000", "30000");
 	private ExecutorService executor;
 	private ProcPipe processor;
 	private final HttpContextHolder contexts;
@@ -169,8 +170,15 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 			try {
 				Socket s = ss.accept();
 				Integer timeout = new Integer(options.get(SOCKET_TIMEOUT));
-				s.setSoTimeout(timeout);
-				processor.submit(new ProcSplit(new SocketResource(s)));
+				if (timeout != -1)
+					s.setSoTimeout(timeout);
+				
+				ProcSplit split = new ProcSplit();
+				split.add("in", new SimpleCleanableResource(s.getInputStream(), null));
+				split.add("out", new SimpleCleanableResource(s.getOutputStream(), null));
+				split.add("Socket", new SocketResource(s));
+				
+				processor.submit(split);
 				if (!stopRequested.get())
 					executor.execute(this);
 			} catch (IOException e) {
