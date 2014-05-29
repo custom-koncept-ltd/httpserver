@@ -26,13 +26,11 @@
 			<groupId>com.kncept.httpserver</groupId>
 			<artifactId>legacy-mod</artifactId>
 			<version>0.8.0</version>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.kncept.httpserver</groupId>
 			<artifactId>koncept-full</artifactId>
 			<version>0.8.0</version>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.kncept.httpserver</groupId>
