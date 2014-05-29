@@ -21,7 +21,6 @@
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.4</version>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.kncept.httpserver</groupId>
@@ -34,6 +33,11 @@
 			<artifactId>koncept-full</artifactId>
 			<version>0.8.0</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.kncept.httpserver</groupId>
+			<artifactId>http-utils</artifactId>
+			<version>0.8.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
