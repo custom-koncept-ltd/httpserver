@@ -152,6 +152,8 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		try {
 			stopRequested.set(true);
 			serverSocket.close();
+//			executor.shutdown();
+			processor.stop();
 			if (secondsDelay != 0) 
 				executor.awaitTermination(secondsDelay, TimeUnit.SECONDS);
 		} catch (IOException e) {
