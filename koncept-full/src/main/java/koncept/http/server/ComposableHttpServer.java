@@ -14,6 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import koncept.http.io.StreamsWrapper;
 import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
 import koncept.http.server.exchange.ExecFilterStage;
@@ -29,8 +30,9 @@ import koncept.sp.resource.SimpleProcTerminator;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 
-public class ComposableHttpServer extends ConfigurableHttpServer {
+public class ComposableHttpServer extends ConfigurableHttpServer implements StreamsWrapper.SocketWrapper {
 	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.timeout", "-1", "0", "500", "1000", "30000");
 	private ExecutorService executor;
 	private ProcPipe processor;
@@ -40,12 +42,16 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 	private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
 	private Map<ConfigurationOption, String> options = new ConcurrentHashMap<>();
-	
+
 	public ComposableHttpServer() {
-		contexts = new HttpContextHolder(this);
+		contexts = new HttpContextHolder(getHttpServer());
 		options.put(ATTRIBUTE_SCOPE, "");
 		options.put(SOCKET_TIMEOUT, "");
 		resetOptionsToDefaults();
+	}
+	
+	public HttpServer getHttpServer() {
+		return this;
 	}
 	
 	@Override
@@ -169,7 +175,12 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
+	@Override
+	public StreamsWrapper wrap(Socket s) throws IOException {
+		return new StreamsWrapper.SimpleWrapper(s.getInputStream(), s.getOutputStream());
+	}
+	
 	private class RebindServerSocketAcceptor implements Runnable {
 		private final ServerSocket ss;
 		public RebindServerSocketAcceptor(ServerSocket ss) {
@@ -182,9 +193,12 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 				if (timeout != -1)
 					s.setSoTimeout(timeout);
 				
+				StreamsWrapper streams = wrap(s);
+				
 				ProcSplit split = new ProcSplit();
-				split.add("in", new SimpleCleanableResource(s.getInputStream(), null));
-				split.add("out", new SimpleCleanableResource(s.getOutputStream(), null));
+				split.add("in", new SimpleCleanableResource(streams.getIn(), null));
+				split.add("out", new SimpleCleanableResource(streams.getOut(), null));
+				split.add("StreamsWrapper", new SimpleCleanableResource(streams, null));
 				split.add("Socket", new SocketResource(s));
 				
 				processor.submit(split);
