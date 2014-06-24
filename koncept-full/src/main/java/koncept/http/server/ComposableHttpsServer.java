@@ -32,6 +32,10 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		return this;
 	}
 	
+	public ComposableHttpServer getWrapped() {
+		return wrapped;
+	}
+	
 	@Override
 	public void setHttpsConfigurator(HttpsConfigurator configurator) {
 		if (configurator == null) {

@@ -54,6 +54,10 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		return this;
 	}
 	
+	public ProcPipe getProcessor() {
+		return processor;
+	}
+	
 	@Override
 	public Map<ConfigurationOption, String> options() {
 		return options;
