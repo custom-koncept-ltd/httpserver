@@ -152,10 +152,17 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		try {
 			stopRequested.set(true);
 			serverSocket.close();
-//			executor.shutdown();
-			processor.stop();
-			if (secondsDelay != 0) 
-				executor.awaitTermination(secondsDelay, TimeUnit.SECONDS);
+			processor.stop(true, false, false); //will no longer accept new requests
+			if (secondsDelay != 0) {
+				long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(secondsDelay);
+				while (
+						System.currentTimeMillis() < endTime && //
+						!processor.tracker().live().isEmpty() && 
+						!processor.tracker().queued().isEmpty()) {
+					Thread.sleep(100);
+				}
+				processor.stop(true, true, true); //abort anything else thats still running (!!)
+			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		} catch (InterruptedException e) {
