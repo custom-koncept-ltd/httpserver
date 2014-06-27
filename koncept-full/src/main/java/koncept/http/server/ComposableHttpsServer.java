@@ -2,11 +2,13 @@ package koncept.http.server;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
-import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
 
 import koncept.http.io.StreamsWrapper;
 import koncept.http.ssl.LegacySslStreamsWrapper;
@@ -20,7 +22,6 @@ import com.sun.net.httpserver.HttpsServer;
 public class ComposableHttpsServer extends ConfigurableHttpsServer implements StreamsWrapper.SocketWrapper {
 
 	private HttpsConfigurator configurator = null;
-	private SSLContext sslContext;
 	
 	private ComposableHttpServerWrapper wrapped;
 	
@@ -70,6 +71,20 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		public HttpServer getHttpServer() {
 			return getHttpsServer();
 		}
+		/**
+		 * TODO: need to rework how *bind* works
+		 */
+		@Override
+		public ServerSocket openSocket(InetSocketAddress addr, int backlog)
+				throws IOException {
+			if (configurator == null) 
+				return null;
+			SSLServerSocketFactory ssf = (SSLServerSocketFactory)configurator.getSSLContext().getServerSocketFactory();
+			SSLServerSocket ss = (SSLServerSocket)ssf.createServerSocket(addr.getPort(), backlog);
+			ss.setEnabledCipherSuites(ssf.getSupportedCipherSuites());
+			return ss;
+		}
+		
 	}
 
 
@@ -90,9 +105,6 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		return wrapped.options();
 	}
 	
-	
-	
-
 	@Override
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
 		wrapped.bind(addr, backlog);

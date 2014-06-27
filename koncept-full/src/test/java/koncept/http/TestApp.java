@@ -4,10 +4,14 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 import koncept.http.server.ComposableHttpServer;
 import koncept.http.server.ComposableHttpsServer;
@@ -28,6 +32,8 @@ public class TestApp {
 	private final HttpServer server;
 
 	public static void main(String[] args) throws Exception {
+		System.setProperty("javax.net.debug", "true");
+		
 		HttpServerProvider provider = null;
 
 		String providerType = args.length > 0 ? args[0] : "koncept";
@@ -39,15 +45,54 @@ public class TestApp {
 			throw new RuntimeException("unknown provider type:" + providerType);
 		}
 
-		boolean https = args.length > 1 ? Boolean.parseBoolean(args[1]) : false;
+		boolean https = args.length > 1 ? Boolean.parseBoolean(args[1]) : true;
 		HttpServer httpServer;
 		if (https) {
+			
+//			javax.net.ssl.SSLHandshakeException: no cipher suites in common
+			
+			System.out.println("KeyStore.getDefaultType() " + KeyStore.getDefaultType());
+			KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
+			System.out.println("ks " + ks.getClass().getName());
+			ks.load(null);
+			
+			System.out.println("KeyManagerFactory.getDefaultAlgorithm() " + KeyManagerFactory.getDefaultAlgorithm());
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			kmf.init(ks, "".toCharArray());
+			System.out.println("kmf=" + kmf.getClass().getName() + " " + kmf);
+			System.out.println("kmf.getKeyManagers().length=" + kmf.getKeyManagers().length);
+			
+			System.out.println("TrustManagerFactory.getDefaultAlgorithm() " + TrustManagerFactory.getDefaultAlgorithm());
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+			tmf.init(ks);
+			System.out.println("tmf=" + tmf.getClass().getName() + " " + tmf);
+			System.out.println("tmf.getTrustManagers().length=" + tmf.getTrustManagers().length);
+			
+			
+			
+			
 			HttpsServer httpsServer = provider.createHttpsServer(
 					new InetSocketAddress("localhost", 8080), 0);
 
-			httpsServer.setHttpsConfigurator(new HttpsConfigurator(SSLContext
-					.getDefault()));
-
+			
+			//Default SSLContext is initialized automatically!!
+			SSLContext sslContext = SSLContext.getDefault();
+//			SSLContext sslContext = SSLContext.getInstance("TLS");
+			
+			SecureRandom random = new SecureRandom();
+//			sslContext.init(
+//					kmf.getKeyManagers(),
+//					tmf.getTrustManagers(),
+//					random);
+			
+			String[] cipherSuites = sslContext.getServerSocketFactory().getSupportedCipherSuites();
+			System.out.println("cipherSuites (" + cipherSuites.length + ")");
+			for(String cipherSuite: cipherSuites)
+				System.out.println("  cipherSuite=" + cipherSuite);
+			
+			
+			
+			httpsServer.setHttpsConfigurator(new HttpsConfigurator(sslContext));
 			httpServer = httpsServer;
 		} else {
 			httpServer = provider.createHttpServer(new InetSocketAddress(

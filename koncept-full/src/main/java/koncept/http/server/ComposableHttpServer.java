@@ -37,6 +37,10 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 	private ExecutorService executor;
 	private ProcPipe processor;
 	private final HttpContextHolder contexts;
+	
+	private InetSocketAddress addr;
+	private int backlog;
+	
 	private ServerSocket serverSocket;
 
 	private final AtomicBoolean stopRequested = new AtomicBoolean(false);
@@ -52,6 +56,10 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 	
 	public HttpServer getHttpServer() {
 		return this;
+	}
+	
+	public ServerSocket openSocket(InetSocketAddress addr, int backlog) throws IOException {
+		return new ServerSocket(addr.getPort(), backlog, addr.getAddress());
 	}
 	
 	public ProcPipe getProcessor() {
@@ -77,8 +85,9 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 	
 	@Override
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
-		// TODO: check for running and rebindind
-		serverSocket = new ServerSocket(addr.getPort(), backlog, addr.getAddress());
+		this.addr = addr;
+		this.backlog = backlog;
+		serverSocket = openSocket(addr, backlog);
 	}
 
 	@Override
@@ -93,7 +102,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 
 	@Override
 	public InetSocketAddress getAddress() {
-		return new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort());
+		return addr;
 	}
 
 	@Override
@@ -126,8 +135,11 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		if (executor == null)
 			throw new RuntimeException("No Executor to run in");
 
-		if (serverSocket == null)
-			throw new RuntimeException("Not bound to an address");
+		if (serverSocket == null) try {
+			serverSocket = openSocket(addr, backlog);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 
 		processor = new SingleExecutorProcPipe(executor, Arrays.asList(
 				new ReadRequestLineStage(),
@@ -162,6 +174,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		try {
 			stopRequested.set(true);
 			serverSocket.close();
+			serverSocket = null;
 			processor.stop(true, false, false); //will no longer accept new requests
 			if (secondsDelay != 0) {
 				long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(secondsDelay);
