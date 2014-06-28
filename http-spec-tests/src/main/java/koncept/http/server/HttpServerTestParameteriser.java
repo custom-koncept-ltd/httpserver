@@ -4,52 +4,68 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.net.ssl.SSLContext;
+
+import koncept.http.jce.SecurityUtil;
 import koncept.junit.runner.Parameterized;
 
+import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.junit.After;
-import org.junit.Before;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized.Parameters;
 
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
 @RunWith(Parameterized.class) //custom runner, for prettier test decorations
 public abstract class HttpServerTestParameteriser {
 
 	public final HttpServerProvider provider;
-	public HttpServer server;
+	public final boolean https;
+	private static SSLContext sslContext;
 	
-	public HttpServerTestParameteriser(HttpServerProvider provider) {
+	public HttpServer server;
+	private HttpClient httpClient;
+	
+	public HttpServerTestParameteriser(HttpServerProvider provider, boolean https) {
 		this.provider = provider;
+		this.https = https;
 	}
 	
-	/**
-	 * Unfortunately, due to a bug in the java-provider http server (?), its possible for a server not to 
-	 * be able to close (even though it hasn't started).
-	 * 
-	 * The bug is also in the legacy-mod artifact
-	 * 
-	 * @return
-	 */
+	public void initServer() throws Exception {
+		if (server != null) throw new IllegalStateException("server should be null");
+		
+		if (isHttps()) {
+			HttpsServer server = provider.createHttpsServer(new InetSocketAddress("localhost", getUnboundPort()), 0);
+			server.setHttpsConfigurator(new HttpsConfigurator(getSslContext()));
+			this.server = server;
+		} else {
+			server = provider.createHttpServer(new InetSocketAddress("localhost", getUnboundPort()), 0);
+		}
+		server.setExecutor(Executors.newFixedThreadPool(getThreadPoolSize())); //currently can't have just a single thread Executor	
+	}
+	
+	public void cleanServer() {
+		if (server == null) throw new IllegalStateException();
+		server.stop(3);
+	}
+	
 	public int getUnboundPort() {
 		int startPort = 9000;
 		for(int i = 0; i < 999; i++) { //ugh, was hoping not to have to port scan
@@ -63,6 +79,31 @@ public abstract class HttpServerTestParameteriser {
 	
 	public int getThreadPoolSize() {
 		return 5;
+	}
+	
+	public boolean isHttps() {
+		return https;
+	}
+	
+	/**
+	 * This is statically cached because its *very* expensive to make
+	 * new SSLContexts all the time; </br>
+	 * @return an sslcontext if isHttps() is true
+	 */
+	public SSLContext getSslContext() {
+		if (!isHttps())
+			return null;
+		if (sslContext == null) try {
+			sslContext = SecurityUtil.makeSSLContext();
+		} catch (Exception e) {
+			if (e instanceof RuntimeException) throw (RuntimeException)e;
+			throw new RuntimeException(e);
+		}
+		return sslContext;
+	}
+	
+	public String getProtocol() {
+		return isHttps() ? "https://" : "http://";
 	}
 	
 	private boolean portAvailable(int port) {
@@ -83,10 +124,26 @@ public abstract class HttpServerTestParameteriser {
 		return false;
 	}
 	
+	public HttpClient httpClient() {
+		if (httpClient == null) {
+			httpClient =  HttpClientBuilder.create()
+					.setSslcontext(sslContext)
+					.build();
+		}
+		return httpClient;
+	}
+	
+	public Socket openDirectSocket() throws IOException {
+		if (isHttps()) {
+			return getSslContext().getSocketFactory().createSocket("localhost", server.getAddress().getPort());
+		} else {
+			return new Socket("localhost", server.getAddress().getPort());
+		}
+	}
+	
 	public Integer simpleUrl(String absolutePath) {
 		try {
-			CloseableHttpClient httpclient = HttpClients.createDefault();
-			CloseableHttpResponse response = httpclient.execute(new HttpGet("http://localhost:" + server.getAddress().getPort() + absolutePath));
+			HttpResponse response = httpClient().execute(new HttpGet(getProtocol() +"localhost:" + server.getAddress().getPort() + absolutePath));
 			return response.getStatusLine().getStatusCode();
 		} catch (ClientProtocolException e) {
 			throw new RuntimeException(e);

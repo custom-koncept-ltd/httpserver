@@ -6,11 +6,9 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 
 import org.apache.http.Header;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.junit.Test;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -19,8 +17,8 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class ResponseHeadersTest extends ProviderSpecHttpServerTestParameteriser {
 
-	public ResponseHeadersTest(HttpServerProvider provider) {
-		super(provider);
+	public ResponseHeadersTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 
 	@Test
@@ -56,8 +54,7 @@ public class ResponseHeadersTest extends ProviderSpecHttpServerTestParameteriser
 	
 	public Header[] urlHeaders(String absolutePath) {
 		try {
-			CloseableHttpClient httpclient = HttpClients.createDefault();
-			CloseableHttpResponse response = httpclient.execute(new HttpGet("http://localhost:" + server.getAddress().getPort() + absolutePath));
+			HttpResponse response = httpClient().execute(new HttpGet(getProtocol() + "localhost:" + server.getAddress().getPort() + absolutePath));
 			return response.getAllHeaders();
 		} catch (ClientProtocolException e) {
 			throw new RuntimeException(e);

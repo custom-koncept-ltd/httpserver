@@ -1,6 +1,7 @@
 package koncept.http.server.parse;
 
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.net.URI;
 import java.util.Map;
@@ -27,12 +28,13 @@ public class ParseHeadersStage implements SplitProcStage {
 		Socket socket = (Socket)last.get("Socket");
 		String requestLine = (String)last.get(ReadRequestLineStage.RequestLine);
 		InputStream in = (InputStream)last.get("in");
+		OutputStream out = (OutputStream)last.get("out");
 		HttpContext httpContext = (HttpContext)last.get("HttpContext");
 
 		String operation[] = requestLine.split(" ");
 		String httpType = operation.length == 3 ? operation[2] : "??"; //TODO
 		
-		HttpExchangeImpl exchange = new HttpExchangeImpl(socket, httpType, operation[0], new URI(operation[1]), httpContext, options);
+		HttpExchangeImpl exchange = new HttpExchangeImpl(socket, in, out, httpType, operation[0], new URI(operation[1]), httpContext, options);
 		
 		//handle headers
 		LineStreamer lines = new LineStreamer(in);
@@ -61,7 +63,7 @@ public class ParseHeadersStage implements SplitProcStage {
 		if (contentLength != null) {
 			Long size = new Long(contentLength);
 			in = new FixedSizeInputStream(in, size, false);
-			exchange.setStreams(in, socket.getOutputStream()); //reset the input streams here for a fixed size stream
+			exchange.setStreams(in, out); //reset the input streams here for a fixed size stream
 		}
 		
 		return last.add("HttpExchange", new SimpleCleanableResource(exchange, null));

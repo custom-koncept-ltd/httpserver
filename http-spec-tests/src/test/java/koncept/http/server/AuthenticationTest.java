@@ -27,8 +27,8 @@ public class AuthenticationTest extends ProviderSpecHttpServerTestParameteriser 
 	 */
 	private static int AUTH_REQUEST_MULTIPLIER = 2;
 	
-	public AuthenticationTest(HttpServerProvider provider) {
-		super(provider);
+	public AuthenticationTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 
 	@Test
@@ -67,9 +67,10 @@ public class AuthenticationTest extends ProviderSpecHttpServerTestParameteriser 
 	                new UsernamePasswordCredentials(username, password));
 	        CloseableHttpClient httpclient = HttpClients.custom()
 	                .setDefaultCredentialsProvider(credsProvider)
+	                .setSslcontext(getSslContext())
 	                .build();
 	        try {
-	            HttpGet httpget = new HttpGet("http://localhost:" + server.getAddress().getPort() + url);
+	            HttpGet httpget = new HttpGet(getProtocol() + "localhost:" + server.getAddress().getPort() + url);
 	            CloseableHttpResponse response = httpclient.execute(httpget);
 	            try {
 	                EntityUtils.consume(response.getEntity());

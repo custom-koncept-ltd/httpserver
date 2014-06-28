@@ -16,8 +16,8 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class Expect100ContinueTest extends ProviderSpecHttpServerTestParameteriser {
 
-	public Expect100ContinueTest(HttpServerProvider provider) {
-		super(provider);
+	public Expect100ContinueTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 	
 	/**
@@ -42,7 +42,7 @@ public class Expect100ContinueTest extends ProviderSpecHttpServerTestParameteris
 	public Integer getExceptContinueUrl(String absolutePath) {
 		Socket s = null;
 		try {
-			s = new Socket("localhost", server.getAddress().getPort());
+			s = openDirectSocket();
 			PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 			String newLine = "\r\n";
 			out.write("PUT / HTTP/1.1" + newLine);

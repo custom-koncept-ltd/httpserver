@@ -41,6 +41,13 @@ public class HttpContextHolder {
 		}
 	}
 	
+	/**
+	 * Finds the matching context.
+	 * A context will match when its context-path is the beginning of the full path.
+	 * if there are multiple matches, the closes match is defined as the context with the longest context-path
+	 * @param path
+	 * @return
+	 */
 	public HttpContext findContext(String path) {
 		HttpContext found = null;
 		for(HttpContext context: contexts) {

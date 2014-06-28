@@ -13,8 +13,8 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class AttributesTest extends ProviderSpecHttpServerTestParameteriser {
 
-	public AttributesTest(HttpServerProvider provider) {
-		super(provider);
+	public AttributesTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 	
 	/**

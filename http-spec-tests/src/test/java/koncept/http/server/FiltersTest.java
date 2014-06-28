@@ -16,8 +16,8 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class FiltersTest extends ProviderSpecHttpServerTestParameteriser {
 
-	public FiltersTest(HttpServerProvider provider) {
-		super(provider);
+	public FiltersTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 
 	@Test

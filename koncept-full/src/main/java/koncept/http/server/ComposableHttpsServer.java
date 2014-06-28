@@ -11,7 +11,6 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 
 import koncept.http.io.StreamsWrapper;
-import koncept.http.ssl.LegacySslStreamsWrapper;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -58,7 +57,8 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 	}
 	
 	public StreamsWrapper wrapHttps(Socket s) throws IOException {
-		return new LegacySslStreamsWrapper(s, configurator);
+		// turns out we don't need to wrap the socket at all if we create it correctly with an ssl server socket factory  :)
+		return new StreamsWrapper.SimpleWrapper(s.getInputStream(), s.getOutputStream());
 	}
 	
 	
@@ -71,14 +71,10 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		public HttpServer getHttpServer() {
 			return getHttpsServer();
 		}
-		/**
-		 * TODO: need to rework how *bind* works
-		 */
+		
 		@Override
 		public ServerSocket openSocket(InetSocketAddress addr, int backlog)
 				throws IOException {
-			if (configurator == null) 
-				return null;
 			SSLServerSocketFactory ssf = (SSLServerSocketFactory)configurator.getSSLContext().getServerSocketFactory();
 			SSLServerSocket ss = (SSLServerSocket)ssf.createServerSocket(addr.getPort(), backlog);
 			ss.setEnabledCipherSuites(ssf.getSupportedCipherSuites());

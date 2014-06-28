@@ -33,7 +33,8 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 public class ComposableHttpServer extends ConfigurableHttpServer implements StreamsWrapper.SocketWrapper {
-	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.timeout", "-1", "0", "500", "1000", "30000");
+	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.SO_TIMEOUT ", "-1", "0", "500", "1000", "30000");
+	public static final ConfigurationOption ALLOW_REUSE_SOCKET = new ConfigurationOption("socket.SO_REUSEADDR", "true", "false", "none");
 	private ExecutorService executor;
 	private ProcPipe processor;
 	private final HttpContextHolder contexts;
@@ -51,6 +52,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		contexts = new HttpContextHolder(getHttpServer());
 		options.put(ATTRIBUTE_SCOPE, "");
 		options.put(SOCKET_TIMEOUT, "");
+		options.put(ALLOW_REUSE_SOCKET, "");
 		resetOptionsToDefaults();
 	}
 	
@@ -59,7 +61,8 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 	}
 	
 	public ServerSocket openSocket(InetSocketAddress addr, int backlog) throws IOException {
-		return new ServerSocket(addr.getPort(), backlog, addr.getAddress());
+		ServerSocket ss = new ServerSocket(addr.getPort(), backlog, addr.getAddress());
+		return ss;
 	}
 	
 	public ProcPipe getProcessor() {
@@ -75,19 +78,20 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
     public void resetOptionsToDefaults() {
     	ConfigurationOption.set(options, ATTRIBUTE_SCOPE, "exchange");
     	ConfigurationOption.set(options, SOCKET_TIMEOUT, "500");
+    	ConfigurationOption.set(options, ALLOW_REUSE_SOCKET, "true");
     }
     
     @Override
     public void resetOptionsToJVMStandard() {
     	ConfigurationOption.set(options, ATTRIBUTE_SCOPE, "context");
     	ConfigurationOption.set(options, SOCKET_TIMEOUT, "500");
+    	ConfigurationOption.set(options, ALLOW_REUSE_SOCKET, "true");
     }
 	
 	@Override
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
 		this.addr = addr;
 		this.backlog = backlog;
-		serverSocket = openSocket(addr, backlog);
 	}
 
 	@Override
@@ -135,8 +139,14 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		if (executor == null)
 			throw new RuntimeException("No Executor to run in");
 
-		if (serverSocket == null) try {
+		try {
 			serverSocket = openSocket(addr, backlog);
+			String allowResuse = options.get(ALLOW_REUSE_SOCKET);
+			if (allowResuse.equalsIgnoreCase("true"))
+				serverSocket.setReuseAddress(true);
+			else if (allowResuse.equalsIgnoreCase("false"))
+				serverSocket.setReuseAddress(false);
+			
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -149,7 +159,6 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 				new ExecHandlerStage()
 		),
 		new SimpleProcTerminator(null));
-
 		executor.execute(new RebindServerSocketAcceptor(serverSocket));
 	}
 
@@ -173,9 +182,11 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 			throw new IllegalArgumentException(); // -ve numbers are invalid
 		try {
 			stopRequested.set(true);
-			serverSocket.close();
-			serverSocket = null;
 			processor.stop(true, false, false); //will no longer accept new requests
+			if (serverSocket != null) {
+				serverSocket.close();
+				serverSocket = null;
+			}
 			if (secondsDelay != 0) {
 				long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(secondsDelay);
 				while (
@@ -184,7 +195,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 						!processor.tracker().queued().isEmpty()) {
 					Thread.sleep(100);
 				}
-				processor.stop(true, true, true); //abort anything else thats still running (!!)
+//				processor.stop(true, true, true); //abort anything else thats still running (!!)
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -215,7 +226,6 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 				ProcSplit split = new ProcSplit();
 				split.add("in", new SimpleCleanableResource(streams.getIn(), null));
 				split.add("out", new SimpleCleanableResource(streams.getOut(), null));
-				split.add("StreamsWrapper", new SimpleCleanableResource(streams, null));
 				split.add("Socket", new SocketResource(s));
 				
 				processor.submit(split);

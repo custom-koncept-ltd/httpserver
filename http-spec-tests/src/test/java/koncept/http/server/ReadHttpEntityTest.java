@@ -10,12 +10,10 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.junit.Test;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -23,8 +21,8 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class ReadHttpEntityTest extends ProviderSpecHttpServerTestParameteriser {
 
-	public ReadHttpEntityTest(HttpServerProvider provider) {
-		super(provider);
+	public ReadHttpEntityTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 	
 	/**
@@ -46,11 +44,9 @@ public class ReadHttpEntityTest extends ProviderSpecHttpServerTestParameteriser 
 	
 	public Integer putData(String absolutePath, String data) {
 		try {
-			CloseableHttpClient httpclient = HttpClients.createDefault();
-			
-			HttpPut put = new HttpPut("http://localhost:" + server.getAddress().getPort() + absolutePath);
+			HttpPut put = new HttpPut(getProtocol() + "localhost:" + server.getAddress().getPort() + absolutePath);
 			put.setEntity(new StringEntity(data));
-			CloseableHttpResponse response = httpclient.execute(put);
+			HttpResponse response = httpClient().execute(put);
 			return response.getStatusLine().getStatusCode();
 		} catch (ClientProtocolException e) {
 			throw new RuntimeException(e);

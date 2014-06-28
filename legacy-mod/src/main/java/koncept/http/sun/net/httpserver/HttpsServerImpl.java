@@ -49,7 +49,7 @@ public class HttpsServerImpl extends ConfigurableHttpsServer {
 
     public HttpsServerImpl (InetSocketAddress addr, int backlog) throws IOException {
         server = new ServerImpl (this, "https", addr, backlog, options);
-        options.put(ExchangeImpl.ATTRIBUTE_SCOPE, null);
+        options.put(ExchangeImpl.ATTRIBUTE_SCOPE, "context");
     	resetOptionsToDefaults();
     }
 

@@ -20,8 +20,8 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class RequestHeadersTest extends ProviderSpecHttpServerTestParameteriser {
 
-	public RequestHeadersTest(HttpServerProvider provider) {
-		super(provider);
+	public RequestHeadersTest(HttpServerProvider provider, boolean https) {
+		super(provider, https);
 	}
 
 	@Test
@@ -68,7 +68,7 @@ public class RequestHeadersTest extends ProviderSpecHttpServerTestParameteriser 
 	private Integer simpleUrlWithCustomHeaders(String absolutePath) {
 		Socket s = null;
 		try {
-			s = new Socket("localhost", server.getAddress().getPort());
+			s = openDirectSocket();
 			PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 			String newLine = "\r\n";
 			out.write("GET / HTTP/1.1" + newLine);

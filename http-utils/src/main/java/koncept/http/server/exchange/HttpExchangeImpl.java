@@ -46,9 +46,9 @@ public class HttpExchangeImpl extends HttpExchange {
 	private HttpPrincipal principal;
 	private int responseCode = 0;
 	
-	public HttpExchangeImpl(Socket socket, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
+	public HttpExchangeImpl(Socket socket, InputStream in, OutputStream out, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
 		this.socket = socket;
-		setStreams(socket.getInputStream(), socket.getOutputStream());
+		setStreams(in, out);
 		this.httpVersion = httpVersion;
 		this.requestMethod = requestMethod;
 		this.requestURI = requestURI;
