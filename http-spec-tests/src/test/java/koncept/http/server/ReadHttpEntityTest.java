@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.http.HttpResponse;
@@ -56,7 +57,7 @@ public class ReadHttpEntityTest extends ProviderSpecHttpServerTestParameteriser 
 	}
 	
 	static class ReadingeHandler extends RecordingHandler {
-		List<String> read = new ArrayList<>();
+		List<String> read = Collections.synchronizedList(new ArrayList<String>());
 		@Override
 		public void handle(HttpExchange exchange) throws IOException {
 			InputStream in = exchange.getRequestBody();

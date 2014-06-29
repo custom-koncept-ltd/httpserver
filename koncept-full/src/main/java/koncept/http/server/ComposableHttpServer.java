@@ -6,7 +6,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -17,8 +18,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import koncept.http.io.StreamsWrapper;
 import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
-import koncept.http.server.exchange.ExecFilterStage;
-import koncept.http.server.exchange.ExecHandlerStage;
+import koncept.http.server.exchange.ExecSystemFilterStage;
+import koncept.http.server.exchange.ExecUserFilterChainStage;
 import koncept.http.server.parse.ParseHeadersStage;
 import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.sp.ProcSplit;
@@ -27,6 +28,7 @@ import koncept.sp.pipe.SingleExecutorProcPipe;
 import koncept.sp.resource.CleanableResource;
 import koncept.sp.resource.SimpleCleanableResource;
 import koncept.sp.resource.SimpleProcTerminator;
+import koncept.sp.stage.SplitProcStage;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -35,6 +37,7 @@ import com.sun.net.httpserver.HttpServer;
 public class ComposableHttpServer extends ConfigurableHttpServer implements StreamsWrapper.SocketWrapper {
 	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.SO_TIMEOUT ", "-1", "0", "500", "1000", "30000");
 	public static final ConfigurationOption ALLOW_REUSE_SOCKET = new ConfigurationOption("socket.SO_REUSEADDR", "true", "false", "none");
+	public static final ConfigurationOption FILTER_ORDER = new ConfigurationOption("server.filter.order", "system-first", "system-last");
 	private ExecutorService executor;
 	private ProcPipe processor;
 	private final HttpContextHolder contexts;
@@ -53,6 +56,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		options.put(ATTRIBUTE_SCOPE, "");
 		options.put(SOCKET_TIMEOUT, "");
 		options.put(ALLOW_REUSE_SOCKET, "");
+		options.put(FILTER_ORDER, "");
 		resetOptionsToDefaults();
 	}
 	
@@ -79,13 +83,14 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
     	ConfigurationOption.set(options, ATTRIBUTE_SCOPE, "exchange");
     	ConfigurationOption.set(options, SOCKET_TIMEOUT, "500");
     	ConfigurationOption.set(options, ALLOW_REUSE_SOCKET, "true");
+    	ConfigurationOption.set(options, FILTER_ORDER, "system-first");
     }
     
     @Override
     public void resetOptionsToJVMStandard() {
     	ConfigurationOption.set(options, ATTRIBUTE_SCOPE, "context");
     	ConfigurationOption.set(options, SOCKET_TIMEOUT, "500");
-    	ConfigurationOption.set(options, ALLOW_REUSE_SOCKET, "true");
+    	ConfigurationOption.set(options, FILTER_ORDER, "system-last");
     }
 	
 	@Override
@@ -151,14 +156,25 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 			throw new RuntimeException(e);
 		}
 
-		processor = new SingleExecutorProcPipe(executor, Arrays.asList(
-				new ReadRequestLineStage(),
-				new ContextLookupStage(contexts),
-				new ParseHeadersStage(options),
-				new ExecFilterStage(),
-				new ExecHandlerStage()
-		),
-		new SimpleProcTerminator(null));
+		String filterOrder = options.get(FILTER_ORDER);
+		boolean systemFirst = filterOrder.equals("system-first");
+		
+		List<SplitProcStage> stages = new ArrayList<>();
+		stages.add(new ReadRequestLineStage());
+		stages.add(new ContextLookupStage(contexts));
+		stages.add(new ParseHeadersStage(options));
+		if (systemFirst) {
+			stages.add(new ExecSystemFilterStage());
+			stages.add(new ExecUserFilterChainStage());
+		} else {
+			stages.add(new ExecUserFilterChainStage(new ExecSystemFilterStage()));
+		}
+		
+		
+		processor = new SingleExecutorProcPipe(
+				executor,
+				stages,
+				new SimpleProcTerminator(null));
 		executor.execute(new RebindServerSocketAcceptor(serverSocket));
 	}
 

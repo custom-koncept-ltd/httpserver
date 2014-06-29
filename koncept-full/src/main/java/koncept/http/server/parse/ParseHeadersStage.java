@@ -55,10 +55,7 @@ public class ParseHeadersStage implements SplitProcStage {
 
 			line = lines.readLine();
 		}
-		String expect100 = exchange.getRequestHeaders().getFirst("Expect");
-		if (expect100 != null && expect100.equals("100-continue")) {
-			exchange.sendPreviewCode(Code.HTTP_CONTINUE);
-		}
+		
 		String contentLength = exchange.getRequestHeaders().getFirst("Content-Length");
 		if (contentLength != null) {
 			Long size = new Long(contentLength);

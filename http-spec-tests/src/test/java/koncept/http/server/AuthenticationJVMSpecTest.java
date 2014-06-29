@@ -20,14 +20,14 @@ import com.sun.net.httpserver.BasicAuthenticator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
-public class AuthenticationTest extends ProviderSpecHttpServerTestParameteriser {
+public class AuthenticationJVMSpecTest extends ProviderSpecHttpServerTestParameteriser {
 
 	/**
 	 * the auth/challenge/response means that the filter may get hit multiple times
 	 */
 	private static int AUTH_REQUEST_MULTIPLIER = 2;
 	
-	public AuthenticationTest(HttpServerProvider provider, boolean https) {
+	public AuthenticationJVMSpecTest(HttpServerProvider provider, boolean https) {
 		super(provider, https);
 	}
 

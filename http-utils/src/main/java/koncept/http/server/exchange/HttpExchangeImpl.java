@@ -114,7 +114,7 @@ public class HttpExchangeImpl extends HttpExchange {
 		p.print(httpVersion + " " + rCode + Code.msg(rCode));
 		p.print(newLine);
 //		p.print("Content-length: 0"); //?? seems this is part of the reply (!!)
-		p.print(newLine);
+//		p.print(newLine);
 		p.flush();
 	}
 	
