@@ -32,7 +32,7 @@ public class ReadHttpEntityTest extends ProviderSpecHttpServerTestParameteriser 
 	 */
 	@Test
 	public void readData() throws IOException {
-		ReadingeHandler handler = new ReadingeHandler();
+		ReadingHandler handler = new ReadingHandler();
 		server.createContext("/", handler);
 		
 		String data = "line1\nline2\r\n3rd line\n\n5th";
@@ -56,7 +56,7 @@ public class ReadHttpEntityTest extends ProviderSpecHttpServerTestParameteriser 
 		}
 	}
 	
-	static class ReadingeHandler extends RecordingHandler {
+	static class ReadingHandler extends RecordingHandler {
 		List<String> read = Collections.synchronizedList(new ArrayList<String>());
 		@Override
 		public void handle(HttpExchange exchange) throws IOException {
