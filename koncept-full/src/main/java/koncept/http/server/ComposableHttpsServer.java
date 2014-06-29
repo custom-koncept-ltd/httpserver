@@ -76,7 +76,7 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		public ServerSocket openSocket(InetSocketAddress addr, int backlog)
 				throws IOException {
 			SSLServerSocketFactory ssf = (SSLServerSocketFactory)configurator.getSSLContext().getServerSocketFactory();
-			SSLServerSocket ss = (SSLServerSocket)ssf.createServerSocket(addr.getPort(), backlog);
+			SSLServerSocket ss = (SSLServerSocket)ssf.createServerSocket(addr.getPort(), backlog, addr.getAddress());
 			ss.setEnabledCipherSuites(ssf.getSupportedCipherSuites());
 			return ss;
 		}
