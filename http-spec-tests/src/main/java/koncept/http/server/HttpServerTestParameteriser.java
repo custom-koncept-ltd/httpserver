@@ -41,7 +41,6 @@ public abstract class HttpServerTestParameteriser {
 	private static SSLContext sslContext;
 	
 	public HttpServer server;
-	private HttpClient httpClient;
 	
 	public HttpServerTestParameteriser(HttpServerProvider provider, boolean https) {
 		this.provider = provider;
@@ -124,13 +123,15 @@ public abstract class HttpServerTestParameteriser {
 		return false;
 	}
 	
+	/**
+	 * since Keep-Alive isn't (yet) supported, just create a new
+	 * http clientent whenever
+	 * @return
+	 */
 	public HttpClient httpClient() {
-		if (httpClient == null) {
-			httpClient =  HttpClientBuilder.create()
-					.setSslcontext(sslContext)
-					.build();
-		}
-		return httpClient;
+		return HttpClientBuilder.create()
+				.setSslcontext(sslContext)
+				.build();
 	}
 	
 	public Socket openDirectSocket() throws IOException {

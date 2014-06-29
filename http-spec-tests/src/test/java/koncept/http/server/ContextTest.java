@@ -7,7 +7,6 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 
 import org.apache.http.NoHttpResponseException;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.sun.net.httpserver.HttpContext;
@@ -28,7 +27,6 @@ public class ContextTest extends ProviderSpecHttpServerTestParameteriser {
 	}
 	
 	@Test
-	@Ignore("currently hanging (!!)")
 	public void contextSelectionTest() throws IOException {
 		RecordingHandler rootHandler = new RecordingHandler();
 		HttpContext rootContext = server.createContext("/", rootHandler);

@@ -91,6 +91,8 @@ public class HttpExchangeImpl extends HttpExchange {
 	@Override
 	public void close() {
 		try {
+			in.close();
+			out.close();
 			socket.close();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
