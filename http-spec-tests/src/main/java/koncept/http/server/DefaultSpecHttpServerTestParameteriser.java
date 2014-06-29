@@ -23,8 +23,8 @@ public abstract class DefaultSpecHttpServerTestParameteriser extends HttpServerT
 	public void init() throws Exception {
 		initServer();
 		//these test are for compatability with the provider implementation
-		if (server instanceof ConfigurableHttpServer) {
-			((ConfigurableHttpServer)server).resetOptionsToDefaults();
+		if (server instanceof ConfigurableServer) {
+			((ConfigurableServer)server).resetOptionsToDefaults();
 		} else 
 			throw new IllegalArgumentException("test requires a ConfigurableHttpServer");
 		

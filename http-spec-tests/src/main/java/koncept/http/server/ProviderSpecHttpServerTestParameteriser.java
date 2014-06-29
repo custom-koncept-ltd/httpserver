@@ -25,8 +25,8 @@ public abstract class ProviderSpecHttpServerTestParameteriser extends HttpServer
 		initServer();
 		
 		//these test are for compatability with the provider implementation
-		if (server instanceof ConfigurableHttpServer) {
-			((ConfigurableHttpServer)server).resetOptionsToJVMStandard();
+		if (server instanceof ConfigurableServer) {
+			((ConfigurableServer)server).resetOptionsToJVMStandard();
 		}
 		server.start();
 	}
