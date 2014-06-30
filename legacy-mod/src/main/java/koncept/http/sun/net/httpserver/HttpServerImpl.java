@@ -47,24 +47,22 @@ public class HttpServerImpl extends ConfigurableHttpServer {
     }
 
     public HttpServerImpl (InetSocketAddress addr, int backlog) throws IOException {
-    	options.put(ExchangeImpl.ATTRIBUTE_SCOPE, "");
-    	resetOptionsToDefaults();
-        server = new ServerImpl (this, "http", addr, backlog, options);
+        server = new ServerImpl (this, "http", addr, backlog);
     }
 
     @Override
     public Map<ConfigurationOption, String> options() {
-    	return options;
+    	return server.options();
     }
     
     @Override
     public void resetOptionsToDefaults() {
-    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "exchange");
+    	server.resetOptionsToDefaults();
     }
     
     @Override
     public void resetOptionsToJVMStandard() {
-    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "context");
+    	server.resetOptionsToJVMStandard();
     }
     
     public void bind (InetSocketAddress addr, int backlog) throws IOException {

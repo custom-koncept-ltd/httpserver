@@ -28,7 +28,6 @@ package koncept.http.sun.net.httpserver;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import koncept.http.server.ConfigurableHttpsServer;
@@ -41,31 +40,30 @@ import com.sun.net.httpserver.HttpsConfigurator;
 public class HttpsServerImpl extends ConfigurableHttpsServer {
 
     ServerImpl server;
-    private final Map<ConfigurationOption, String> options = new ConcurrentHashMap<ConfigurationOption, String>();
+    
 
     public HttpsServerImpl () throws IOException {
         this (new InetSocketAddress(443), 0);
     }
 
     public HttpsServerImpl (InetSocketAddress addr, int backlog) throws IOException {
-        server = new ServerImpl (this, "https", addr, backlog, options);
-        options.put(ExchangeImpl.ATTRIBUTE_SCOPE, "context");
+        server = new ServerImpl (this, "https", addr, backlog);
     	resetOptionsToDefaults();
     }
 
     @Override
     public Map<ConfigurationOption, String> options() {
-    	return options;
+    	return server.options();
     }
     
     @Override
     public void resetOptionsToDefaults() {
-    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "exchange");
+    	server.resetOptionsToDefaults();
     }
     
     @Override
     public void resetOptionsToJVMStandard() {
-    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "context");
+    	server.resetOptionsToJVMStandard();
     }
     
     public void setHttpsConfigurator (HttpsConfigurator config) {

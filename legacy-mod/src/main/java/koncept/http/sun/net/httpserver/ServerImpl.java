@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -56,6 +57,7 @@ import java.util.logging.Logger;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
+import koncept.http.server.ConfigurableServer;
 import koncept.http.server.ConfigurationOption;
 import koncept.http.sun.net.httpserver.HttpConnection.State;
 
@@ -70,9 +72,10 @@ import com.sun.net.httpserver.HttpsConfigurator;
 /**
  * Provides implementation for both HTTP and HTTPS
  */
-class ServerImpl implements TimeSource {
+class ServerImpl implements TimeSource, ConfigurableServer {
 	
-	private final Map<ConfigurationOption, String> options;
+	private final Map<ConfigurationOption, String> options = new ConcurrentHashMap<ConfigurationOption, String>();
+	public static final ConfigurationOption FILTER_ORDER = new ConfigurationOption("server.filter.order", "system-first", "system-last");
 
     private String protocol;
     private boolean https;
@@ -115,10 +118,10 @@ class ServerImpl implements TimeSource {
     private Logger logger;
 
     ServerImpl (
-        HttpServer wrapper, String protocol, InetSocketAddress addr, int backlog,
-        Map<ConfigurationOption, String> options
+        HttpServer wrapper, String protocol, InetSocketAddress addr, int backlog
     ) throws IOException {
-    	this.options = options;
+    	options.put(ExchangeImpl.ATTRIBUTE_SCOPE, "");
+    	options.put(FILTER_ORDER, "");
         this.protocol = protocol;
         this.wrapper = wrapper;
         this.logger = Logger.getLogger ("com.sun.net.httpserver");
@@ -501,6 +504,7 @@ class ServerImpl implements TimeSource {
         /* per exchange task */
 
     class Exchange implements Runnable {
+    	
         SocketChannel chan;
         HttpConnection connection;
         HttpContextImpl context;
@@ -653,19 +657,31 @@ class ServerImpl implements TimeSource {
                  * They are linked together by a LinkHandler
                  * so that they can both be invoked in one call.
                  */
+                
+                String filterOrder = options.get(FILTER_ORDER);
+                boolean systemFirst = filterOrder.equals("system-first");
+                
                 List<Filter> sf = ctx.getSystemFilters();
                 List<Filter> uf = ctx.getFilters();
 
-                Filter.Chain sc = new Filter.Chain(sf, ctx.getHandler());
-                Filter.Chain uc = new Filter.Chain(uf, new LinkHandler (sc));
+                Filter.Chain chain;
+                if (systemFirst) {
+                	Filter.Chain uc = new Filter.Chain(uf, ctx.getHandler());
+                	Filter.Chain sc = new Filter.Chain(sf, new LinkHandler (uc));
+                	chain = sc;
+                } else {
+                	Filter.Chain sc = new Filter.Chain(sf, ctx.getHandler());
+                    Filter.Chain uc = new Filter.Chain(uf, new LinkHandler (sc));
+                    chain = uc;
+                }
 
                 /* set up the two stream references */
                 tx.getRequestBody();
                 tx.getResponseBody();
                 if (https) {
-                    uc.doFilter (new HttpsExchangeImpl (tx));
+                    chain.doFilter (new HttpsExchangeImpl (tx));
                 } else {
-                    uc.doFilter (new HttpExchangeImpl (tx));
+                	chain.doFilter (new HttpExchangeImpl (tx));
                 }
 
             } catch (IOException e1) {
@@ -897,5 +913,22 @@ class ServerImpl implements TimeSource {
         } else {
             return secs * 1000;
         }
+    }
+    
+    @Override
+    public Map<ConfigurationOption, String> options() {
+    	return options;
+    }
+    
+    @Override
+    public void resetOptionsToDefaults() {
+    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "exchange");
+    	ConfigurationOption.set(options, FILTER_ORDER, "system-first");
+    }
+    
+    @Override
+    public void resetOptionsToJVMStandard() {
+    	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "context");
+    	ConfigurationOption.set(options, FILTER_ORDER, "system-last");
     }
 }
