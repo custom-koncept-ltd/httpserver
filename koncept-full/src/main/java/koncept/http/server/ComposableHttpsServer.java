@@ -3,14 +3,11 @@ package koncept.http.server;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
-
-import koncept.http.io.StreamsWrapper;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -18,7 +15,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
 
-public class ComposableHttpsServer extends ConfigurableHttpsServer implements StreamsWrapper.SocketWrapper {
+public class ComposableHttpsServer extends ConfigurableHttpsServer {
 
 	private HttpsConfigurator configurator = null;
 	
@@ -52,21 +49,7 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		return configurator;
 	}
 	
-	public StreamsWrapper wrap(Socket s) throws IOException {
-		return wrapHttps(s);
-	}
-	
-	public StreamsWrapper wrapHttps(Socket s) throws IOException {
-		// turns out we don't need to wrap the socket at all if we create it correctly with an ssl server socket factory  :)
-		return new StreamsWrapper.SimpleWrapper(s.getInputStream(), s.getOutputStream());
-	}
-	
-	
 	private class ComposableHttpServerWrapper extends ComposableHttpServer {
-		@Override
-		public StreamsWrapper wrap(Socket s) throws IOException {
-			return wrapHttps(s);
-		}
 		@Override
 		public HttpServer getHttpServer() {
 			return getHttpsServer();
@@ -82,9 +65,6 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer implements St
 		}
 		
 	}
-
-
-	
 	
 	@Override
 	public void resetOptionsToJVMStandard() {

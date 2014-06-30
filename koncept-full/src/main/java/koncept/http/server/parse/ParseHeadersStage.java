@@ -6,10 +6,8 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.Map;
 
-import koncept.http.server.Code;
 import koncept.http.server.ConfigurationOption;
 import koncept.http.server.exchange.HttpExchangeImpl;
-import koncept.io.FixedSizeInputStream;
 import koncept.io.LineStreamer;
 import koncept.sp.ProcSplit;
 import koncept.sp.resource.SimpleCleanableResource;
@@ -54,13 +52,6 @@ public class ParseHeadersStage implements SplitProcStage {
 			}
 
 			line = lines.readLine();
-		}
-		
-		String contentLength = exchange.getRequestHeaders().getFirst("Content-Length");
-		if (contentLength != null) {
-			Long size = new Long(contentLength);
-			in = new FixedSizeInputStream(in, size, false);
-			exchange.setStreams(in, out); //reset the input streams here for a fixed size stream
 		}
 		
 		return last.add("HttpExchange", new SimpleCleanableResource(exchange, null));

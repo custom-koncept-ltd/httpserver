@@ -15,7 +15,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import koncept.http.io.StreamsWrapper;
 import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
 import koncept.http.server.exchange.ExecSystemFilterStage;
@@ -34,7 +33,7 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-public class ComposableHttpServer extends ConfigurableHttpServer implements StreamsWrapper.SocketWrapper {
+public class ComposableHttpServer extends ConfigurableHttpServer {
 	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.SO_TIMEOUT ", "-1", "0", "500", "1000", "30000");
 	public static final ConfigurationOption ALLOW_REUSE_SOCKET = new ConfigurationOption("socket.SO_REUSEADDR", "true", "false", "none");
 	public static final ConfigurationOption FILTER_ORDER = new ConfigurationOption("server.filter.order", "system-first", "system-last");
@@ -220,11 +219,6 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 		}
 	}
 	
-	@Override
-	public StreamsWrapper wrap(Socket s) throws IOException {
-		return new StreamsWrapper.SimpleWrapper(s.getInputStream(), s.getOutputStream());
-	}
-	
 	private class RebindServerSocketAcceptor implements Runnable {
 		private final ServerSocket ss;
 		public RebindServerSocketAcceptor(ServerSocket ss) {
@@ -237,11 +231,10 @@ public class ComposableHttpServer extends ConfigurableHttpServer implements Stre
 				if (timeout != -1)
 					s.setSoTimeout(timeout);
 				
-				StreamsWrapper streams = wrap(s);
 				
 				ProcSplit split = new ProcSplit();
-				split.add("in", new SimpleCleanableResource(streams.getIn(), null));
-				split.add("out", new SimpleCleanableResource(streams.getOut(), null));
+				split.add("in", new SimpleCleanableResource(s.getInputStream(), null));
+				split.add("out", new SimpleCleanableResource(s.getOutputStream(), null));
 				split.add("Socket", new SocketResource(s));
 				
 				processor.submit(split);
