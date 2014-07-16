@@ -3,12 +3,12 @@ package koncept.http.server;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
+
+import koncept.io.LineStreamer;
 
 import org.junit.Test;
 
@@ -50,12 +50,11 @@ public class Expect100ContinueTest extends ProviderSpecHttpServerTestParameteris
 			out.write(newLine);
 			out.flush();
 			
-			BufferedReader bIn = new BufferedReader(new InputStreamReader(s.getInputStream()));
-			String line = bIn.readLine();
-
+			LineStreamer lines = new LineStreamer(s.getInputStream());
+			String line = lines.readLine();
 			String statusLine[] = line.split(" "); //HTTP/1.1 100 Continue
-			while (line != null) { //need to read off the entire response
-				line = bIn.readLine();
+			while (line != null && !line.equals("")) { //need to read off the entire response
+				line = lines.readLine(100);
 			}
 			return new Integer(statusLine[1]);
 		} catch (IOException e) {

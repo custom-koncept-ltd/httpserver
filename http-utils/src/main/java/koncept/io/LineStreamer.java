@@ -2,6 +2,7 @@ package koncept.io;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.LinkedList;
 import java.util.List;
@@ -20,6 +21,14 @@ public class LineStreamer {
 	private final byte[][] tokens;
 	private final int size;
 	
+	//these are now stateful
+	List<byte[]> buffHist = new LinkedList<>();
+	byte[] buff; // = new byte[size];
+	byte[] recent; // = new byte[maxTokenLength()];
+	int offsetRecent = 0;
+	int index = 0;
+	int stripLength = 0;
+	
 	public LineStreamer(InputStream wrapped) {
 		this(wrapped, 1024, crlf);
 	}
@@ -28,6 +37,9 @@ public class LineStreamer {
 		this.wrapped = wrapped;
 		this.size = size;
 		this.tokens = tokens;
+		
+		buff = new byte[size];
+		recent = new byte[maxTokenLength()];
 	}
 	
 	public LineStreamer(InputStream wrapped, int size, String... tokens) {
@@ -37,6 +49,9 @@ public class LineStreamer {
 		for(int i = 0; i < tokens.length; i++) {
 			this.tokens[i] = tokens[i].getBytes(); //platform default encoding... err... not really what you want
 		}
+		
+		buff = new byte[size];
+		recent = new byte[maxTokenLength()];
 	}
 	
 /**
@@ -44,18 +59,24 @@ public class LineStreamer {
  * @return
  * @throws IOException
  */
-	public byte[] bytesToToken() throws IOException {
-		List<byte[]> buffHist = new LinkedList<>();
-		byte[] buff = new byte[size];
-		byte[] recent = new byte[maxTokenLength()];
-		int offsetRecent = 0;
-		int index = 0;
-		int stripLength = 0;
+	public byte[] readBytesToToken() throws IOException {
+		return nonBlockingreadBytesToToken(-1);
+	}
+	
+	public byte[] readBytesToToken(long durationMillis) throws IOException {
+		if (durationMillis == -1L)
+			return nonBlockingreadBytesToToken(-1);
+		else
+			return nonBlockingreadBytesToToken(System.currentTimeMillis() + durationMillis);
+	}
+	
+	private byte[] nonBlockingreadBytesToToken(long endTimeMillis) throws IOException {
+		Integer read = null;
 		try {
-			int read = wrapped.read();
-			while (read != -1) {
-				buff[index] = (byte)read;
-				recent[offsetRecent] = (byte)read;
+			read = nonBlockingRead(endTimeMillis);
+			while (read != null && read.intValue() != -1) {
+				buff[index] = read.byteValue();
+				recent[offsetRecent] = buff[index];
 				index++;
 				offsetRecent = (offsetRecent + 1) % recent.length;
 				if (index == size) {
@@ -68,11 +89,14 @@ public class LineStreamer {
 					stripLength = tokens[tokenIndex].length;
 					break;
 				}
-				read = wrapped.read();
+				 read = nonBlockingRead(endTimeMillis);
 			} //end of stream or token reached
 		} catch (SocketTimeoutException e) {
-			//use as a 'break' - socket timed out, just take whats left
+			//on read timeout, socket will be closed, so just force the abort
+			return null; //return null for end of stream
 		}
+		if (read == null)
+			return null; //return null for end of stream (read timed out)
 		
 		//didn't read any bytes, return null for end of stream
 		if (buffHist.isEmpty() && index == 0) return null;
@@ -91,7 +115,43 @@ public class LineStreamer {
 		}
 		System.arraycopy(buff, 0, result, buffHist.size() * size, index);
 		
+		//reset internal state
+		//no need to clean a byte[] bufers contents - we scope read/writes correctly
+		buffHist.clear();
+//		clear(buff); // = new byte[size];
+//		clear(recent); // = new byte[maxTokenLength()];
+		offsetRecent = 0;
+		index = 0;
+		stripLength = 0;
+		
+		
+		
 		return result;
+	}
+	
+	protected Integer nonBlockingRead(long endTimeMillis) throws IOException {
+		try {
+			byte[] b = new byte[1];
+			int read = wrapped.read(b); //**IF** the underlying is non blocking on this read, we will read 0 bytes. otherwise... we are screwed (and need nio or nio2)
+			if (read == -1) return -1;
+			if (read == 1) return (int)b[0];
+			while (endTimeMillis == -1 || System.currentTimeMillis() < endTimeMillis) {
+				//do mini wait
+				try {
+					Thread.sleep(50);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				read = wrapped.read(b);
+				if (read == -1) return -1;
+				if (read == 1) return (int)b[0];
+			}
+		} catch (SocketException e) {
+			if (e.getMessage().startsWith("Software caused connection abort"))
+				return null;
+			throw e;
+		}
+		return null; //timeout!!
 	}
 	
 	//TODO: need to protect against zeros matching zeroes (!!)
@@ -117,14 +177,18 @@ public class LineStreamer {
 		return length;
 	}
 	
-	protected String toString(byte[] b) {
+	protected String convertToString(byte[] b) {
 		if (b == null) return null;
 		if (b.length == 0) return "";
 		return new String(b);
 	}
 	
 	public String readLine() throws IOException {
-		return toString(bytesToToken());
+		return convertToString(readBytesToToken());
+	}
+	
+	public String readLine(long durationMillis) throws IOException {
+		return convertToString(readBytesToToken(durationMillis));
 	}
 
 }

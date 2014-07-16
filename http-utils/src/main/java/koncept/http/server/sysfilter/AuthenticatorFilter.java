@@ -11,10 +11,6 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpPrincipal;
 
 public class AuthenticatorFilter extends Filter {
-	final Authenticator authenticator;
-	public AuthenticatorFilter(Authenticator authenticator) {
-		this.authenticator = authenticator;
-	}
 	@Override
 	public String description() {
 		return "AuthenticatorFilter";
@@ -22,6 +18,7 @@ public class AuthenticatorFilter extends Filter {
 	@Override
 	public void doFilter(HttpExchange exchange, Chain chain)
 			throws IOException {
+		Authenticator authenticator = exchange.getHttpContext().getAuthenticator();
 		if (authenticator == null)
 			chain.doFilter(exchange);
 		else {

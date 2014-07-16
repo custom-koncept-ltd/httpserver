@@ -23,19 +23,19 @@ public class ParseHeadersStage implements SplitProcStage {
 	}
 	
 	public ProcSplit run(ProcSplit last) throws Exception {
-		Socket socket = (Socket)last.get("Socket");
-		String requestLine = (String)last.get(ReadRequestLineStage.RequestLine);
-		InputStream in = (InputStream)last.get("in");
-		OutputStream out = (OutputStream)last.get("out");
-		HttpContext httpContext = (HttpContext)last.get("HttpContext");
+		Socket socket = (Socket)last.getResource("Socket");
+		String requestLine = (String)last.getResource(ReadRequestLineStage.RequestLine);
+		LineStreamer lines = (LineStreamer)last.getResource("LineStreamer");
+		InputStream in = (InputStream)last.getResource("in");
+		OutputStream out = (OutputStream)last.getResource("out");
+		HttpContext httpContext = (HttpContext)last.getResource("HttpContext");
 
 		String operation[] = requestLine.split(" ");
-		String httpType = operation.length == 3 ? operation[2] : "??"; //TODO
+		String httpType = operation.length == 3 ? operation[2] : ""; //TODO
 		
 		HttpExchangeImpl exchange = new HttpExchangeImpl(socket, in, out, httpType, operation[0], new URI(operation[1]), httpContext, options);
 		
 		//handle headers
-		LineStreamer lines = new LineStreamer(in);
 		String line = lines.readLine();
 //		while (line.equals("")) line = lines.readLine(); //skip blank lines - though there shouldn't be any
 		while(line != null && !line.equals("")) {

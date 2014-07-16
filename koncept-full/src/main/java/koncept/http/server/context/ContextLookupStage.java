@@ -16,7 +16,7 @@ public class ContextLookupStage implements SplitProcStage {
 	}
 	
 	public ProcSplit run(ProcSplit last) {
-		String requestLine = (String)last.get(ReadRequestLineStage.RequestLine);
+		String requestLine = (String)last.getResource(ReadRequestLineStage.RequestLine);
 		String operation[] = requestLine.split(" ");
 		HttpContext httpContext = contexts.findContext(operation[1]);//use the URL part to look up the http context
 		if (httpContext != null && httpContext.getHandler() != null) {

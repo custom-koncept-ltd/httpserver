@@ -27,7 +27,7 @@ public class FiniteSizedInputStream extends Filter {
 		}
 		
 		if (size != null) {
-			InputStream in = new FixedSizeInputStream(exchange.getRequestBody(), size, false);
+			InputStream in = new FixedSizeInputStream(exchange.getRequestBody(), size, true);
 			exchange.setStreams(in, exchange.getResponseBody()); //reset the input streams here for a fixed size stream
 		}
 		chain.doFilter(exchange);

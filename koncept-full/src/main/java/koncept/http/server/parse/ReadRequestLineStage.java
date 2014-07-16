@@ -1,7 +1,5 @@
 package koncept.http.server.parse;
 
-import java.io.InputStream;
-
 import koncept.io.LineStreamer;
 import koncept.sp.ProcSplit;
 import koncept.sp.resource.SimpleCleanableResource;
@@ -17,15 +15,13 @@ public class ReadRequestLineStage implements SplitProcStage {
 	public static final String RequestLine = "RequestLine";
 	
 	public ProcSplit run(ProcSplit last) throws Exception {
-		InputStream in = (InputStream)last.get("in");
-		LineStreamer lines = new LineStreamer(in);
+		if (last.getResourceNames().contains(RequestLine))
+			return last; //nothing to do
+		LineStreamer lines = (LineStreamer)last.getResource("LineStreamer");
 		String line = lines.readLine();
 		while (line.equals("")) line = lines.readLine(); //skip blank lines
 		return last.add(RequestLine, new SimpleCleanableResource(line, null));
 	}
-	
-	
-	
 	
 	
 }

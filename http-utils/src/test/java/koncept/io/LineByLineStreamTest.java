@@ -15,7 +15,7 @@ public class LineByLineStreamTest {
 	public void smallBufferSingleMatch() throws IOException {
 		//use an odd sized buffer
 		LineStreamer lines = new LineStreamer(simpleStream(), 7, new byte[]{32});
-		byte[] read = lines.bytesToToken();
+		byte[] read = lines.readBytesToToken();
 		System.out.println(read.length);
 		//first 32 character = size 16
 		assertThat(read.length, is(32)); //0 to 31
@@ -28,7 +28,7 @@ public class LineByLineStreamTest {
 	@Test
 	public void largeBufferSingleMatch() throws IOException {
 		LineStreamer lines = new LineStreamer(simpleStream(), 1024, new byte[]{0}); 
-		byte[] read = lines.bytesToToken();
+		byte[] read = lines.readBytesToToken();
 		int readTimes = 0;
 		while(read != null) {
 			readTimes++;
@@ -41,7 +41,7 @@ public class LineByLineStreamTest {
 			}
 			
 				
-			read = lines.bytesToToken();
+			read = lines.readBytesToToken();
 		}
 		assertThat(readTimes, is(11));
 	}

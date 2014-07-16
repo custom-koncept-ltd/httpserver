@@ -1,10 +1,12 @@
 package koncept.http.server;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -168,7 +170,18 @@ public abstract class HttpServerTestParameteriser {
 			lastRequestMethod = exchange.getRequestMethod();
 			
 			exchange.sendResponseHeaders(Code.HTTP_OK, -1);
-			exchange.close(); //shouldn't this be automatic?
+			
+			try {
+				//drain the request (!!)
+				//even though there may be 0bytes, this seems to be required (!!)
+				InputStream is = exchange.getRequestBody();
+				int read = is.read();
+				while(read != -1) {
+					read = is.read();
+				}
+			} catch (SocketTimeoutException e) {
+				//nop
+			}
 		}
 	}
 	
