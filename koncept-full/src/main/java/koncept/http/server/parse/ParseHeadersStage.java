@@ -25,6 +25,7 @@ public class ParseHeadersStage implements SplitProcStage {
 	public ProcSplit run(ProcSplit last) throws Exception {
 		Socket socket = (Socket)last.getResource("Socket");
 		String requestLine = (String)last.getResource(ReadRequestLineStage.RequestLine);
+		if (requestLine == null) return last; //abort(!!)
 		LineStreamer lines = (LineStreamer)last.getResource("LineStreamer");
 		InputStream in = (InputStream)last.getResource("in");
 		OutputStream out = (OutputStream)last.getResource("out");

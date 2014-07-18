@@ -19,8 +19,10 @@ public class ReadRequestLineStage implements SplitProcStage {
 			return last; //nothing to do
 		LineStreamer lines = (LineStreamer)last.getResource("LineStreamer");
 		String line = lines.readLine();
-		while (line.equals("")) line = lines.readLine(); //skip blank lines
-		return last.add(RequestLine, new SimpleCleanableResource(line, null));
+		while (line != null && line.equals("")) line = lines.readLine(); //skip blank lines
+		if (line != null && !line.equals(""))
+			last.add(RequestLine, new SimpleCleanableResource(line, null));
+		return last;
 	}
 	
 	
