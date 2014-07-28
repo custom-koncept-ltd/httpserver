@@ -42,19 +42,33 @@ public class Expect100ContinueTest extends ProviderSpecHttpServerTestParameteris
 	public Integer getExceptContinueUrl(String absolutePath) {
 		Socket s = null;
 		try {
+			byte[] postContent = "post=true".getBytes();
 			s = openDirectSocket();
 			PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 			String newLine = "\r\n";
 			out.write("PUT / HTTP/1.1" + newLine);
 			out.write("Expect: 100-continue" + newLine);
+			out.write("Content-Type: application/x-www-form-urlencoded"+ newLine);
+			out.write("Content-Length: " + postContent.length + newLine); //?? what if this isn't known. TODO: test behaviour
 			out.write(newLine);
 			out.flush();
 			
+//			System.out.println("length: " + postContent.length);
+//			System.out.write(postContent);
+//			System.out.println();
+			
 			LineStreamer lines = new LineStreamer(s.getInputStream());
 			String line = lines.readLine();
+			//System.out.println("read: " + line);
 			String statusLine[] = line.split(" "); //HTTP/1.1 100 Continue
+			
+			s.getOutputStream().write(postContent);
+			s.getOutputStream().flush();
+			//technically, a request body is *required* here
+			
 			while (line != null && !line.equals("")) { //need to read off the entire response
 				line = lines.readLine(100);
+				//System.out.println("read: " + line);
 			}
 			return new Integer(statusLine[1]);
 		} catch (IOException e) {

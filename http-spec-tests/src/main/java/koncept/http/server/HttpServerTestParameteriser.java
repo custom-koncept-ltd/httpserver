@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLContext;
 
@@ -38,6 +39,9 @@ import com.sun.net.httpserver.spi.HttpServerProvider;
 @RunWith(Parameterized.class) //custom runner, for prettier test decorations
 public abstract class HttpServerTestParameteriser {
 
+	private static final int startPort = 9000;;
+	private static final AtomicLong portOffset = new AtomicLong(0);
+	
 	public final HttpServerProvider provider;
 	public final boolean https;
 	private static SSLContext sslContext;
@@ -68,11 +72,12 @@ public abstract class HttpServerTestParameteriser {
 	}
 	
 	public int getUnboundPort() {
-		int startPort = 9000;
+		int offset = (int)portOffset.getAndIncrement();
 		for(int i = 0; i < 999; i++) { //ugh, was hoping not to have to port scan
-			if (portAvailable(startPort + i)) {
-//				System.out.println("port " + (startPort + i));
-				return startPort + i;
+			int port = (offset + i) % 1000;
+			port += startPort;;
+			if (portAvailable(port)) {
+				return port;
 			}
 		}
 		throw new RuntimeException("Unable to find an open port");
@@ -169,8 +174,6 @@ public abstract class HttpServerTestParameteriser {
 			lastUri = exchange.getRequestURI();
 			lastRequestMethod = exchange.getRequestMethod();
 			
-			exchange.sendResponseHeaders(Code.HTTP_OK, -1);
-			
 			try {
 				//drain the request (!!)
 				//even though there may be 0bytes, this seems to be required (!!)
@@ -182,6 +185,8 @@ public abstract class HttpServerTestParameteriser {
 			} catch (SocketTimeoutException e) {
 				//nop
 			}
+			
+			exchange.sendResponseHeaders(Code.HTTP_OK, -1);
 		}
 	}
 	

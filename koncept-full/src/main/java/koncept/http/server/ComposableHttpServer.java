@@ -2,12 +2,11 @@ package koncept.http.server;
 
 import static koncept.http.server.exchange.HttpExchangeImpl.ATTRIBUTE_SCOPE;
 
-import java.io.Closeable;
-import java.io.Flushable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -19,6 +18,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
@@ -32,8 +32,9 @@ import koncept.sp.ProcSplit;
 import koncept.sp.pipe.ProcPipe;
 import koncept.sp.pipe.SingleExecutorProcPipe;
 import koncept.sp.resource.CleanableResource;
+import koncept.sp.resource.NonCleanableResource;
 import koncept.sp.resource.ProcTerminator;
-import koncept.sp.resource.SimpleCleanableResource;
+import koncept.sp.resource.SimpleCloseableResource;
 import koncept.sp.resource.SimpleProcPipeCleaner;
 import koncept.sp.stage.SplitProcStage;
 import koncept.sp.tracker.BlockingJobTracker;
@@ -192,7 +193,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		}
 		
 		processor = new SingleExecutorProcPipe(
-				ComposableHttpServer.class.getName(),
+				Logger.getLogger(ComposableHttpServer.class.getName()),
 				new BlockingJobTracker(),
 				executor,
 				stages,
@@ -258,10 +259,10 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 				
 				
 				ProcSplit split = new ProcSplit();
-				split.add("Socket", new ClosableResource(s));
-				split.add("LineStreamer", new SimpleCleanableResource(new LineStreamer(s.getInputStream()), null));
-				split.add("in", new SimpleCleanableResource(s.getInputStream(), null));
-				split.add("out", new SimpleCleanableResource(s.getOutputStream(), null));
+				split.add("Socket", new SimpleCloseableResource(s));
+				split.add("LineStreamer", new NonCleanableResource(new LineStreamer(s.getInputStream())));
+				split.add("in", new NonCleanableResource(s.getInputStream()));
+				split.add("out", new NonCleanableResource(s.getOutputStream()));
 
 				
 				processor.submit(split);
@@ -271,26 +272,6 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 				if (ss.isClosed()) return; //socket closed... not actually an error
 				throw new RuntimeException(e);
 			}
-		}
-	}
-	
-	private class ClosableResource implements CleanableResource {
-		private final Closeable c;
-		public ClosableResource(Closeable c) {
-			this.c = c;
-		}
-		public void clean() {
-			try {
-				if (c instanceof Flushable)
-					((Flushable)c).flush();
-				c.close();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-		}
-		
-		public Object get() {
-			return c;
 		}
 	}
 	
@@ -338,11 +319,11 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 						
 						ProcSplit split = new ProcSplit();
 						Socket s = zs.socket();
-						split.add("Socket", new ClosableResource(s));
-						split.add("LineStreamer", new SimpleCleanableResource(zs.lines(), null));
-						split.add("in", new ClosableResource(s.getInputStream()));
-						split.add("out", new ClosableResource(s.getOutputStream()));
-						split.add(ReadRequestLineStage.RequestLine, new SimpleCleanableResource(requestLine, null));
+						split.add("Socket", new SimpleCloseableResource(s));
+						split.add("LineStreamer", new NonCleanableResource(zs.lines()));
+						split.add("in", new NonCleanableResource(s.getInputStream()));
+						split.add("out", new NonCleanableResource(s.getOutputStream()));
+						split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
 						toProcess.add(split);
 					} else if (zs.count() > 10) {
 						toRemove.add(zs);
@@ -382,19 +363,22 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 						String requestLine = s.lines().readLine();
 						
 						ProcSplit split = new ProcSplit();
-						split.add("Socket", new ClosableResource(s.socket()));
-						split.add("LineStreamer", new SimpleCleanableResource(s.lines(), null));
-						split.add("in", new ClosableResource(s.socket().getInputStream()));
-						split.add("out", new ClosableResource(s.socket().getOutputStream()));
+						split.add("Socket", new SimpleCloseableResource(s.socket()));
+						split.add("LineStreamer", new NonCleanableResource(s.lines()));
+						split.add("in", new NonCleanableResource(s.socket().getInputStream()));
+						split.add("out", new NonCleanableResource(s.socket().getOutputStream()));
 						
 						timeout = new Integer(options.get(SOCKET_TIMEOUT));
 						if (timeout != -1)
 							s.socket().setSoTimeout(timeout);
 						
-						split.add(ReadRequestLineStage.RequestLine, new SimpleCleanableResource(requestLine, null));
+						split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
 						processor.submit(split);
 					} catch (IOException e) {
-						e.printStackTrace();
+						if (e instanceof SocketException && e.getMessage().equals("Socket Closed")) {
+					} else {
+							e.printStackTrace();
+						}
 					}
 				}
 			});
@@ -445,8 +429,7 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 			return false;
 		}
 		@Override
-		public void clean(ProcSplit finalResult) {
-			
+		public void clean(ProcSplit finalResult) throws Exception {
 			finalResult.clean();
 		}
 		@Override

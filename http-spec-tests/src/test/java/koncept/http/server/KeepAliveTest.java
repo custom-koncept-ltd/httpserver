@@ -103,15 +103,11 @@ public class KeepAliveTest extends ProviderSpecHttpServerTestParameteriser {
 		PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 		String newLine = "\r\n";
 		out.write("GET " + url + " " + httpVersion + newLine);
-		System.out.println("toServer [" + url + "] GET " + url + " " + httpVersion);
 		out.write("Content-Length: 0" + newLine);
-		System.out.println("toServer [" + url + "] Content-Length: 0");
 		if (connectionHeaderValue != null) {
 			out.write("Connection: " + connectionHeaderValue + newLine);
-			System.out.println("toServer [" + url + "] Connection: " + connectionHeaderValue);
 		}
 		out.write(newLine);
-		System.out.println("toServer [" + url + "]");
 		out.flush();
 		
 		LineStreamer lines = new LineStreamer(s.getInputStream());
@@ -120,9 +116,8 @@ public class KeepAliveTest extends ProviderSpecHttpServerTestParameteriser {
 		if (statusLine == null) return null;
 		Integer returnCode = new Integer(statusLine.split(" ")[1]);
 		
-		System.out.println("fromServer[" + url + "]: " + statusLine);
 		for(String line = lines.readLine(10); line != null && !line.equals(""); line = lines.readLine(10)) {
-			System.out.println("fromServer[" + url + "]: " + line);
+			//just strip off the response
 		}
 		return returnCode;
 	}

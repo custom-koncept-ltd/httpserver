@@ -10,7 +10,7 @@ import koncept.http.server.ConfigurationOption;
 import koncept.http.server.exchange.HttpExchangeImpl;
 import koncept.io.LineStreamer;
 import koncept.sp.ProcSplit;
-import koncept.sp.resource.SimpleCleanableResource;
+import koncept.sp.resource.NonCleanableResource;
 import koncept.sp.stage.SplitProcStage;
 
 import com.sun.net.httpserver.HttpContext;
@@ -55,7 +55,7 @@ public class ParseHeadersStage implements SplitProcStage {
 			line = lines.readLine();
 		}
 		
-		return last.add("HttpExchange", new SimpleCleanableResource(exchange, null));
+		return last.add("HttpExchange", new NonCleanableResource(exchange));
 	}
 	
 	

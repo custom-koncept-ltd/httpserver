@@ -2,7 +2,7 @@ package koncept.http.server.parse;
 
 import koncept.io.LineStreamer;
 import koncept.sp.ProcSplit;
-import koncept.sp.resource.SimpleCleanableResource;
+import koncept.sp.resource.NonCleanableResource;
 import koncept.sp.stage.SplitProcStage;
 
 /**
@@ -21,7 +21,7 @@ public class ReadRequestLineStage implements SplitProcStage {
 		String line = lines.readLine();
 		while (line != null && line.equals("")) line = lines.readLine(); //skip blank lines
 		if (line != null && !line.equals(""))
-			last.add(RequestLine, new SimpleCleanableResource(line, null));
+			last.add(RequestLine, new NonCleanableResource(line));
 		return last;
 	}
 	

@@ -11,7 +11,7 @@ import koncept.http.server.sysfilter.AuthenticatorFilter;
 import koncept.http.server.sysfilter.Expect100ContinueFilter;
 import koncept.http.server.sysfilter.FiniteSizedInputStream;
 import koncept.sp.ProcSplit;
-import koncept.sp.resource.SimpleCleanableResource;
+import koncept.sp.resource.NonCleanableResource;
 import koncept.sp.stage.SplitProcStage;
 
 import com.sun.net.httpserver.Filter;
@@ -41,7 +41,7 @@ public class ExecSystemFilterStage implements SplitProcStage {
 			filterChain.doFilter(exchange);
 			doNextStage = executeNextStage.executeNextStage();
 		}
-		last.add(ExecSystemFilterStage.class.getName(), new SimpleCleanableResource(doNextStage, null));
+		last.add(ExecSystemFilterStage.class.getName(), new NonCleanableResource(doNextStage));
 		return last;
 	}
 	

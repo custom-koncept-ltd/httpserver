@@ -149,6 +149,8 @@ public class LineStreamer {
 		} catch (SocketException e) {
 			if (e.getMessage().startsWith("Software caused connection abort"))
 				return null;
+			if (e.getMessage().equals("Connection reset"))
+				return null;
 			throw e;
 		}
 		return null; //timeout!!
