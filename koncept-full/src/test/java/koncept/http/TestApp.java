@@ -10,8 +10,8 @@ import java.util.concurrent.Executors;
 import javax.net.ssl.SSLContext;
 
 import koncept.http.jce.SecurityUtil;
-import koncept.http.server.ComposableHttpServer;
-import koncept.http.server.ComposableHttpsServer;
+import koncept.http.server.ComposableHttpIOServer;
+import koncept.http.server.ComposableHttpsIOServer;
 import koncept.http.server.ConfigurableServer;
 import koncept.http.server.ConfigurationOption;
 import koncept.sp.pipe.ProcPipe;
@@ -112,7 +112,7 @@ public class TestApp {
 	}
 	
 	private boolean serverIsComposable() {
-		return server instanceof ComposableHttpServer || server instanceof ComposableHttpsServer;
+		return server instanceof ComposableHttpIOServer || server instanceof ComposableHttpsIOServer;
 	}
 	
 	class StopHandler implements HttpHandler {
@@ -182,11 +182,11 @@ public class TestApp {
 			} else {
 				exchange.sendResponseHeaders(200, 0);
 				
-				ComposableHttpServer composableServer;
-				if (server instanceof ComposableHttpServer)
-					composableServer = (ComposableHttpServer)server;
+				ComposableHttpIOServer composableServer;
+				if (server instanceof ComposableHttpIOServer)
+					composableServer = (ComposableHttpIOServer)server;
 				else{ // if (server instanceof ComposableHttpsServer) {
-					composableServer = ((ComposableHttpsServer)server).getWrapped();
+					composableServer = ((ComposableHttpsIOServer)server).getWrapped();
 				}
 				ProcPipe processor = composableServer.getProcessor();
 				JobTracker tracker = processor.tracker();

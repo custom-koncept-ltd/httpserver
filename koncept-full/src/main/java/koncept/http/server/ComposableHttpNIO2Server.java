@@ -4,9 +4,11 @@ import static koncept.http.server.exchange.HttpExchangeImpl.ATTRIBUTE_SCOPE;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.StandardSocketOptions;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -28,6 +30,7 @@ import koncept.http.server.exchange.HttpExchangeImpl;
 import koncept.http.server.parse.ParseHeadersStage;
 import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.io.LineStreamer;
+import koncept.nio2.StreamedByteChannel;
 import koncept.sp.ProcSplit;
 import koncept.sp.pipe.ProcPipe;
 import koncept.sp.pipe.SingleExecutorProcPipe;
@@ -43,7 +46,7 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-public class ComposableHttpServer extends ConfigurableHttpServer {
+public class ComposableHttpNIO2Server extends ConfigurableHttpServer {
 	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.SO_TIMEOUT ", "-1", "0", "500", "1000", "30000");
 	public static final ConfigurationOption ALLOW_REUSE_SOCKET = new ConfigurationOption("socket.SO_REUSEADDR", "true", "false", "none");
 	public static final ConfigurationOption FILTER_ORDER = new ConfigurationOption("server.filter-order", "system-first", "system-last");
@@ -59,13 +62,14 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 	private InetSocketAddress addr;
 	private int backlog;
 	
-	private ServerSocket serverSocket;
+//	private ServerSocket serverSocket;
+	ServerSocketChannel ssChannel;
 
 	private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
 	private final Map<ConfigurationOption, String> options = new ConcurrentHashMap<>();
 
-	public ComposableHttpServer() {
+	public ComposableHttpNIO2Server() {
 		contexts = new HttpContextHolder(getHttpServer());
 		keepAlive = new SocketKeepAlive(options);
 		options.put(ATTRIBUTE_SCOPE, "");
@@ -81,11 +85,11 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		return this;
 	}
 	
-	public ServerSocket openSocket(InetSocketAddress addr, int backlog) throws IOException {
-		ServerSocket ss = new ServerSocket(addr.getPort(), backlog, addr.getAddress());
-		return ss;
-	}
-	
+//	public ServerSocket openSocket(InetSocketAddress addr, int backlog) throws IOException {
+//		ServerSocket ss = new ServerSocket(addr.getPort(), backlog, addr.getAddress());
+//		return ss;
+//	}
+//	
 	public ProcPipe getProcessor() {
 		return processor;
 	}
@@ -119,6 +123,12 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
 		this.addr = addr;
 		this.backlog = backlog;
+		
+		ssChannel = ServerSocketChannel.open();
+		ssChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+		ssChannel.bind(addr, backlog);
+		
+		ssChannel.configureBlocking(false);
 	}
 
 	@Override
@@ -166,17 +176,19 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		if (executor == null)
 			throw new RuntimeException("No Executor to run in");
 
-		try {
-			serverSocket = openSocket(addr, backlog);
-			String allowResuse = options.get(ALLOW_REUSE_SOCKET);
-			if (allowResuse.equalsIgnoreCase("true"))
-				serverSocket.setReuseAddress(true);
-			else if (allowResuse.equalsIgnoreCase("false"))
-				serverSocket.setReuseAddress(false);
-			
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+//		try {
+//			ssChannel.acc
+//			
+//			serverSocket = openSocket(addr, backlog);
+//			String allowResuse = options.get(ALLOW_REUSE_SOCKET);
+//			if (allowResuse.equalsIgnoreCase("true"))
+//				serverSocket.setReuseAddress(true);
+//			else if (allowResuse.equalsIgnoreCase("false"))
+//				serverSocket.setReuseAddress(false);
+//			
+//		} catch (IOException e) {
+//			throw new RuntimeException(e);
+//		}
 
 		String filterOrder = options.get(FILTER_ORDER);
 		boolean systemFirst = filterOrder.equals("system-first");
@@ -193,13 +205,13 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		}
 		
 		processor = new SingleExecutorProcPipe(
-				Logger.getLogger(ComposableHttpServer.class.getName()),
+				Logger.getLogger(ComposableHttpNIO2Server.class.getName()),
 				new BlockingJobTracker(),
 				executor,
 				stages,
 				new KeepAliveProcTerminators(),
 				new SimpleProcPipeCleaner());
-		executor.execute(new RebindServerSocketAcceptor(serverSocket));
+		executor.execute(new RebindServerSocketAcceptor(ssChannel));
 		executor.execute(keepAlive);
 	}
 
@@ -224,9 +236,9 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		try {
 			stopRequested.set(true);
 			processor.stop(true, false, false); //will no longer accept new requests
-			if (serverSocket != null) {
-				serverSocket.close();
-				serverSocket = null;
+			if (ssChannel != null) {
+				ssChannel.close();
+				ssChannel = null;
 			}
 			if (secondsDelay != 0) {
 				long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(secondsDelay);
@@ -246,31 +258,43 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 	}
 	
 	private class RebindServerSocketAcceptor implements Runnable {
-		private final ServerSocket ss;
-		public RebindServerSocketAcceptor(ServerSocket ss) {
-			this.ss = ss;
+		private final ServerSocketChannel ssChannel;
+		public RebindServerSocketAcceptor(ServerSocketChannel ssChannel) {
+			this.ssChannel = ssChannel;
 		}
 		public void run() {
 			try {
-				Socket s = ss.accept();
-				int timeout = new Integer(options.get(SOCKET_TIMEOUT));
-				if (timeout != -1)
-					s.setSoTimeout(timeout);
-				
-				
-				ProcSplit split = new ProcSplit();
-				split.add("Socket", new SimpleCloseableResource(s));
-				split.add("LineStreamer", new NonCleanableResource(new LineStreamer(s.getInputStream())));
-				split.add("in", new NonCleanableResource(s.getInputStream()));
-				split.add("out", new NonCleanableResource(s.getOutputStream()));
+				SocketChannel sChan = ssChannel.accept();
+				while (sChan != null) {
+					sChan.configureBlocking(false);
+//					sChan.setOption(SocketOptions.SO_TIMEOUT,value)
 
+					StreamedByteChannel streamed = new StreamedByteChannel(sChan);
+					ProcSplit split = new ProcSplit();
+//					split.add("Socket", new SimpleCloseableResource(s));
+					split.add("LineStreamer", new NonCleanableResource(new LineStreamer(streamed.getIn())));
+					split.add("in", new NonCleanableResource(streamed.getIn()));
+					split.add("out", new NonCleanableResource(streamed.getOut()));
+
+					
+					processor.submit(split);
+					sChan = ssChannel.accept();
+				}
 				
-				processor.submit(split);
+				
+//				Socket s = ss.accept();
+//				int timeout = new Integer(options.get(SOCKET_TIMEOUT));
+//				if (timeout != -1)
+//					s.setSoTimeout(timeout);
+				
+				
+				
+			} catch (IOException e) {
+//				if (ss.isClosed()) return; //socket closed... not actually an error
+//				throw new RuntimeException(e);
+			} finally {
 				if (!stopRequested.get())
 					executor.execute(this);
-			} catch (IOException e) {
-				if (ss.isClosed()) return; //socket closed... not actually an error
-				throw new RuntimeException(e);
 			}
 		}
 	}
@@ -434,14 +458,14 @@ public class ComposableHttpServer extends ConfigurableHttpServer {
 		}
 		@Override
 		public T extractFinalResult(ProcSplit finalResult) {
-			if (keepAlive.isKeepAlive() && connectionEligibleForKeepAlive(finalResult)) {
-				CleanableResource socketResource = finalResult.removeCleanableResource("Socket");
-				finalResult.removeCleanableResource("in"); //also remove the IO streams
-				finalResult.removeCleanableResource("out");
-				Socket s = (Socket)socketResource.get();
-				if (!s.isClosed())
-					keepAlive.keepAlive(s);
-			}
+//			if (keepAlive.isKeepAlive() && connectionEligibleForKeepAlive(finalResult)) {
+//				CleanableResource socketResource = finalResult.removeCleanableResource("Socket");
+//				finalResult.removeCleanableResource("in"); //also remove the IO streams
+//				finalResult.removeCleanableResource("out");
+//				Socket s = (Socket)socketResource.get();
+//				if (!s.isClosed())
+//					keepAlive.keepAlive(s);
+//			}
 			return null;
 		}
 	}

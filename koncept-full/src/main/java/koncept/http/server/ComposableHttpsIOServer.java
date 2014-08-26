@@ -15,13 +15,13 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
 
-public class ComposableHttpsServer extends ConfigurableHttpsServer {
+public class ComposableHttpsIOServer extends ConfigurableHttpsServer {
 
 	private HttpsConfigurator configurator = null;
 	
 	private ComposableHttpServerWrapper wrapped;
 	
-	public ComposableHttpsServer() {
+	public ComposableHttpsIOServer() {
 		wrapped = new ComposableHttpServerWrapper();
 	}
 	
@@ -29,7 +29,7 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer {
 		return this;
 	}
 	
-	public ComposableHttpServer getWrapped() {
+	public ComposableHttpIOServer getWrapped() {
 		return wrapped;
 	}
 	
@@ -49,7 +49,7 @@ public class ComposableHttpsServer extends ConfigurableHttpsServer {
 		return configurator;
 	}
 	
-	private class ComposableHttpServerWrapper extends ComposableHttpServer {
+	private class ComposableHttpServerWrapper extends ComposableHttpIOServer {
 		@Override
 		public HttpServer getHttpServer() {
 			return getHttpsServer();

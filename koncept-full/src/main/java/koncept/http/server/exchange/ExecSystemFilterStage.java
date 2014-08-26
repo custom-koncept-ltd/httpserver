@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import koncept.http.server.ComposableHttpServer;
+import koncept.http.server.ComposableHttpIOServer;
 import koncept.http.server.ConfigurationOption;
 import koncept.http.server.sysfilter.AuthenticatorFilter;
 import koncept.http.server.sysfilter.Expect100ContinueFilter;
@@ -28,7 +28,7 @@ public class ExecSystemFilterStage implements SplitProcStage {
 	}
 	
 	public boolean expect100Continue() {
-		return Boolean.parseBoolean(options.get(ComposableHttpServer.EXPECT_100_CONTINUE));
+		return Boolean.parseBoolean(options.get(ComposableHttpIOServer.EXPECT_100_CONTINUE));
 	}
 	
 	public ProcSplit run(ProcSplit last) throws Exception {

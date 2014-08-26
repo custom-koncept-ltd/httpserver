@@ -14,12 +14,14 @@ import koncept.sp.stage.SplitProcStage;
 public class ReadRequestLineStage implements SplitProcStage {
 	public static final String RequestLine = "RequestLine";
 	
+	public static int readTimeout = 10000; //ms = 10 sec
+	
 	public ProcSplit run(ProcSplit last) throws Exception {
 		if (last.getResourceNames().contains(RequestLine))
 			return last; //nothing to do
 		LineStreamer lines = (LineStreamer)last.getResource("LineStreamer");
-		String line = lines.readLine();
-		while (line != null && line.equals("")) line = lines.readLine(); //skip blank lines
+		String line = lines.readLine(readTimeout);
+		while (line != null && line.equals("")) line = lines.readLine(readTimeout); //skip blank lines
 		if (line != null && !line.equals(""))
 			last.add(RequestLine, new NonCleanableResource(line));
 		return last;
