@@ -3,11 +3,11 @@ package koncept.http;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
-import koncept.http.server.ComposableHttpIOServer;
-import koncept.http.server.ComposableHttpsIOServer;
 import koncept.http.server.ConfigurableHttpServer;
 import koncept.http.server.ConfigurableHttpServerProvider;
 import koncept.http.server.ConfigurableHttpsServer;
+import koncept.http.server.io.ComposableHttpIOServer;
+import koncept.http.server.io.ComposableHttpsIOServer;
 
 public class KonceptHttpIOServerProvider extends ConfigurableHttpServerProvider {
 

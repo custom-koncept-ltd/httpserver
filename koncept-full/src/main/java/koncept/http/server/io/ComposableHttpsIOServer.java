@@ -1,13 +1,15 @@
-package koncept.http.server;
+package koncept.http.server.io;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
+
+import koncept.http.server.ConfigurableHttpsServer;
+import koncept.http.server.ConfigurationOption;
 
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -56,12 +58,11 @@ public class ComposableHttpsIOServer extends ConfigurableHttpsServer {
 		}
 		
 		@Override
-		public ServerSocket openSocket(InetSocketAddress addr, int backlog)
-				throws IOException {
+		public ServerSocketAcceptor openSocket(InetSocketAddress addr, int backlog) throws IOException {
 			SSLServerSocketFactory ssf = (SSLServerSocketFactory)configurator.getSSLContext().getServerSocketFactory();
 			SSLServerSocket ss = (SSLServerSocket)ssf.createServerSocket(addr.getPort(), backlog, addr.getAddress());
 			ss.setEnabledCipherSuites(ssf.getSupportedCipherSuites());
-			return ss;
+			return new ServerSocketAcceptor(ss);
 		}
 		
 	}
@@ -130,5 +131,4 @@ public class ComposableHttpsIOServer extends ConfigurableHttpsServer {
 	public InetSocketAddress getAddress() {
 		return wrapped.getAddress();
 	}
-	
 }

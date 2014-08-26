@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import koncept.http.server.ComposableHttpIOServer;
 import koncept.http.server.ConfigurationOption;
+import koncept.http.server.io.ComposableHttpIOServer;
 import koncept.http.server.sysfilter.AuthenticatorFilter;
 import koncept.http.server.sysfilter.Expect100ContinueFilter;
 import koncept.http.server.sysfilter.FiniteSizedInputStream;

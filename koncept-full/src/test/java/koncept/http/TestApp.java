@@ -10,10 +10,10 @@ import java.util.concurrent.Executors;
 import javax.net.ssl.SSLContext;
 
 import koncept.http.jce.SecurityUtil;
-import koncept.http.server.ComposableHttpIOServer;
-import koncept.http.server.ComposableHttpsIOServer;
 import koncept.http.server.ConfigurableServer;
 import koncept.http.server.ConfigurationOption;
+import koncept.http.server.io.ComposableHttpIOServer;
+import koncept.http.server.io.ComposableHttpsIOServer;
 import koncept.sp.pipe.ProcPipe;
 import koncept.sp.tracker.JobTracker;
 import sun.net.httpserver.DefaultHttpServerProvider;

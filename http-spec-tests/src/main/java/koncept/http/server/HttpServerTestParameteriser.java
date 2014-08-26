@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -47,6 +48,7 @@ public abstract class HttpServerTestParameteriser {
 	private static SSLContext sslContext;
 	
 	public HttpServer server;
+	private ExecutorService executor;
 	
 	public HttpServerTestParameteriser(HttpServerProvider provider, boolean https) {
 		this.provider = provider;
@@ -63,12 +65,16 @@ public abstract class HttpServerTestParameteriser {
 		} else {
 			server = provider.createHttpServer(new InetSocketAddress("localhost", getUnboundPort()), 0);
 		}
-		server.setExecutor(Executors.newFixedThreadPool(getThreadPoolSize())); //currently can't have just a single thread Executor	
+		executor = Executors.newFixedThreadPool(getThreadPoolSize());
+		server.setExecutor(executor); //currently can't have just a single thread Executor	
 	}
 	
 	public void cleanServer() {
 		if (server == null) throw new IllegalStateException();
 		server.stop(3);
+		if (!executor.isShutdown())
+			executor.shutdownNow();
+		executor = null;
 	}
 	
 	public int getUnboundPort() {
@@ -178,9 +184,11 @@ public abstract class HttpServerTestParameteriser {
 				//drain the request (!!)
 				//even though there may be 0bytes, this seems to be required (!!)
 				InputStream is = exchange.getRequestBody();
-				int read = is.read();
-				while(read != -1) {
-					read = is.read();
+				while (is.available() > 0) {
+					int read = is.read(); //uh... otherwise we just time out... and with NO timeout set... we hang(!!)
+					while(read != -1) {
+						read = is.read();
+					}
 				}
 			} catch (SocketTimeoutException e) {
 				//nop
