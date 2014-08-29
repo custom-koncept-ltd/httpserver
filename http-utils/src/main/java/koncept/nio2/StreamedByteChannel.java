@@ -1,5 +1,7 @@
 package koncept.nio2;
 
+import java.io.Closeable;
+import java.io.Flushable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -7,7 +9,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 
 
-public class StreamedByteChannel {
+public class StreamedByteChannel implements Closeable, Flushable{
 
 	private static final int capacity = 1024; //bytes
 	
@@ -19,6 +21,18 @@ public class StreamedByteChannel {
 		this.chan = chan;
 		in = new In();
 		out = new Out();
+	}
+	
+	@Override
+	public void close() throws IOException {
+		in.close();
+		out.close();
+		chan.close();
+	}
+	
+	@Override
+	public void flush() throws IOException {
+		out.flush();
 	}
 	
 	public ByteChannel getChan() {
@@ -49,7 +63,7 @@ public class StreamedByteChannel {
 		
 		@Override
 		public void flush() throws IOException {
-			System.out.println(this + " in flush " + t());
+//			System.out.println(this + " in flush " + t());
 			buff.flip();
 			while(buff.hasRemaining()) {
 			    chan.write(buff);
@@ -59,7 +73,7 @@ public class StreamedByteChannel {
 		
 		@Override
 		public void close() throws IOException {
-			System.out.println(this + " in close " + t());
+//			System.out.println(this + " in close " + t());
 		}
 	}
 	
@@ -92,7 +106,7 @@ public class StreamedByteChannel {
 		private void poll() throws IOException {
 			buff.clear();
 			int read = chan.read(buff);
-			System.out.println(this + " in pull - read " + read + " " + t());
+//			System.out.println(this + " in pull - read " + read + " " + t());
 			buff.flip();
 		}
 		

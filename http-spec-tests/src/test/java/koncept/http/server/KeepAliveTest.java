@@ -62,7 +62,7 @@ public class KeepAliveTest extends ProviderSpecHttpServerTestParameteriser {
 	
 	@Test
 	public void http11ExplicitKeepAlive() throws IOException {
-		RecordingHandler handler = new RecordingHandler();
+		RecordingHandler handler = new RecordingHandler(true);
 		server.createContext("/", handler);
 		final String httpVersion = "HTTP/1.1";
 		Socket s = openDirectSocket();
@@ -81,7 +81,7 @@ public class KeepAliveTest extends ProviderSpecHttpServerTestParameteriser {
 	
 	@Test
 	public void http10ExplicitKeepAlive() throws IOException {
-		RecordingHandler handler = new RecordingHandler();
+		RecordingHandler handler = new RecordingHandler(true);
 		server.createContext("/", handler);
 		final String httpVersion = "HTTP/1.0";
 		Socket s = openDirectSocket();

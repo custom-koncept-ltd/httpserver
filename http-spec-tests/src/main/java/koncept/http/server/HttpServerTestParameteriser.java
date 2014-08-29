@@ -173,6 +173,12 @@ public abstract class HttpServerTestParameteriser {
 		public volatile Map<String, List<String>> lastHeaders = null;
 		public volatile URI lastUri;
 		public volatile String lastRequestMethod;
+		private volatile boolean drain = false;
+		
+		public RecordingHandler() {}
+		public RecordingHandler(boolean drain) {this.drain = drain;}
+		
+		
 		
 		public void handle(HttpExchange exchange) throws IOException {
 			lastHeaders = new HashMap<String, List<String>>(exchange.getRequestHeaders());
@@ -184,7 +190,7 @@ public abstract class HttpServerTestParameteriser {
 				//drain the request (!!)
 				//even though there may be 0bytes, this seems to be required (!!)
 				InputStream is = exchange.getRequestBody();
-				while (is.available() > 0) {
+				if (drain) {
 					int read = is.read(); //uh... otherwise we just time out... and with NO timeout set... we hang(!!)
 					while(read != -1) {
 						read = is.read();

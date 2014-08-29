@@ -6,7 +6,6 @@ import java.net.InetSocketAddress;
 import koncept.http.server.ConfigurableHttpServer;
 import koncept.http.server.ConfigurableHttpServerProvider;
 import koncept.http.server.ConfigurableHttpsServer;
-import koncept.http.server.io.ComposableHttpsIOServer;
 import koncept.http.server.nio2.ComposableHttpNIO2Server;
 
 public class KonceptHttpNIO2ServerProvider extends ConfigurableHttpServerProvider {
@@ -22,9 +21,7 @@ public class KonceptHttpNIO2ServerProvider extends ConfigurableHttpServerProvide
 	@Override
 	public ConfigurableHttpsServer createHttpsServer(InetSocketAddress addr, int backlog)
 			throws IOException {
-		ComposableHttpsIOServer server = new ComposableHttpsIOServer();
-		server.bind(addr, backlog);
-		return server;
+		throw new UnsupportedOperationException();
 	}
 	
 }

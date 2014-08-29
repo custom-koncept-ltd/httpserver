@@ -17,7 +17,9 @@ public class KnownProviders {
 		return Arrays.asList(
 				new sun.net.httpserver.DefaultHttpServerProvider(),
 				new koncept.http.LegacyModHttpServerProvider(),
-				new koncept.http.KonceptHttpServerProvider()
+//				new koncept.http.KonceptHttpServerProvider(), //default provider stub
+				new koncept.http.KonceptHttpIOServerProvider(),
+				new koncept.http.KonceptHttpNIO2ServerProvider()
 		);
 	}
 	

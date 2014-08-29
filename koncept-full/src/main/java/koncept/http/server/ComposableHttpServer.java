@@ -1,6 +1,7 @@
 package koncept.http.server;
 
 import static koncept.http.server.exchange.HttpExchangeImpl.ATTRIBUTE_SCOPE;
+import static koncept.http.server.sysfilter.KeepAliveFilter.KEEP_ALIVE;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,8 +22,10 @@ import koncept.http.server.context.ContextLookupStage;
 import koncept.http.server.context.HttpContextHolder;
 import koncept.http.server.exchange.ExecSystemFilterStage;
 import koncept.http.server.exchange.ExecUserFilterChainStage;
+import koncept.http.server.exchange.HttpExchangeImpl;
 import koncept.http.server.parse.ParseHeadersStage;
 import koncept.http.server.parse.ReadRequestLineStage;
+import koncept.http.server.sysfilter.KeepAliveFilter.ConnectionPersistor;
 import koncept.io.LineStreamer;
 import koncept.io.StreamingSocketAcceptor;
 import koncept.io.StreamingSocketAcceptor.SocketClosedException;
@@ -45,7 +48,6 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.SO_TIMEOUT ", "-1", "0", "500", "1000", "30000");
 	public static final ConfigurationOption ALLOW_REUSE_SOCKET = new ConfigurationOption("socket.SO_REUSEADDR", "true", "false", "none");
 	public static final ConfigurationOption FILTER_ORDER = new ConfigurationOption("server.filter-order", "system-first", "system-last");
-	public static final ConfigurationOption KEEP_ALIVE = new ConfigurationOption("server.keep-alive", "true", "false");
 	public static final ConfigurationOption EXPECT_100_CONTINUE = new ConfigurationOption("server.expect-100-continue", "true", "false");
 	
 	protected ExecutorService executor;
@@ -65,14 +67,32 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		options.put(ATTRIBUTE_SCOPE, "");
 		options.put(ALLOW_REUSE_SOCKET, "");
 		options.put(FILTER_ORDER, "");
-//		options.put(KEEP_ALIVE, "");
+		options.put(KEEP_ALIVE, "");
 		options.put(EXPECT_100_CONTINUE, "");
 		resetOptionsToDefaults();
 	}
 	
+	/**
+	 * Open the service listener. Typically some soret of Server Socket, this allows for IO Independence in the server implementation.
+	 * @param addr
+	 * @param backlog
+	 * @return
+	 * @throws IOException
+	 */
 	public abstract StreamingSocketAcceptor openSocket(InetSocketAddress addr, int backlog) throws IOException;
 	
-	public abstract ProcTerminator getTerminator();
+	/**
+	 * Advises the Server Impl that this connection should be persistent<br>
+	 * It is the responsibility of the Server Impl to re-scan for any activity.<br>
+	 * @param connection
+	 */
+	public abstract void keepAlive(StreamingSocketConnection connection);
+	
+	
+	protected void reSubmit(StreamingSocketConnection connection, String requestLine) throws IOException {
+		submit(connection, requestLine);
+	}
+	
 	
 	
 	public HttpServer getHttpServer() {
@@ -94,6 +114,8 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
     	ConfigurationOption.set(options, ALLOW_REUSE_SOCKET, "true");
     	ConfigurationOption.set(options, FILTER_ORDER, "system-first");
     	ConfigurationOption.set(options, EXPECT_100_CONTINUE, "true");
+    	ConfigurationOption.set(options, KEEP_ALIVE, "true");
+    	
     }
     
     @Override
@@ -102,6 +124,14 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
     	ConfigurationOption.set(options, ALLOW_REUSE_SOCKET, "true");
     	ConfigurationOption.set(options, FILTER_ORDER, "system-last");
     	ConfigurationOption.set(options, EXPECT_100_CONTINUE, "true");
+    	ConfigurationOption.set(options, KEEP_ALIVE, "true");
+    }
+    
+    @Override
+    public void setOption(ConfigurationOption option, String value) {
+    	if (!options.containsKey(option))
+    		throw new IllegalArgumentException("Option not understood: " + option);
+    	ConfigurationOption.set(options, option, value);
     }
 	
 	@Override
@@ -128,6 +158,23 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 	@Override
 	public Executor getExecutor() {
 		return executor;
+	}
+	
+	/**
+	 * The default (404) error handler (context not found)
+	 * @return
+	 */
+	public HttpHandler getErrorHandler() {
+		return contexts.getFailureContext().getHandler();
+	}
+	
+	/**
+	 * The default (404) error handler (context not found)
+	 * @param errorHandler
+	 */
+	public void setErrorHandler(HttpHandler errorHandler) {
+		if (errorHandler == null) throw new NullPointerException();
+		contexts.getFailureContext().setHandler(errorHandler);
 	}
 
 	@Override
@@ -177,7 +224,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 					new BlockingJobTracker(),
 					executor,
 					stages,
-					getTerminator(),
+					new RequestFinished(),
 					new SimpleProcPipeCleaner());
 			executor.execute(new RebindServerSocketAcceptor(socketAcceptor));
 		} catch (IOException e) {
@@ -227,6 +274,19 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		}
 	}
 	
+	private void submit(StreamingSocketConnection connection, String requestLine) throws IOException {
+		ProcSplit split = new ProcSplit();
+		split.add("StreamingSocketConnection", new SimpleCloseableResource(connection));
+		InputStream in = connection.in();
+		OutputStream out = connection.out();
+		if (requestLine != null) split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
+		split.add("LineStreamer", new NonCleanableResource(new LineStreamer(in)));
+		split.add("in", new NonCleanableResource(in));
+		split.add("out", new NonCleanableResource(out));
+
+		processor.submit(split);
+	}
+	
 	private class RebindServerSocketAcceptor implements Runnable {
 		private final StreamingSocketAcceptor<?,?> socketAcceptor;
 		public RebindServerSocketAcceptor(StreamingSocketAcceptor<?,?> socketAcceptor) {
@@ -236,16 +296,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 			try {
 				StreamingSocketConnection socketConnection = socketAcceptor.accept();
 				while (socketConnection != null && !stopRequested.get()) {
-					
-					ProcSplit split = new ProcSplit();
-					split.add("StreamingSocketConnection", new SimpleCloseableResource(socketConnection));
-					InputStream in = socketConnection.in();
-					OutputStream out = socketConnection.out();
-					split.add("LineStreamer", new NonCleanableResource(new LineStreamer(in)));
-					split.add("in", new NonCleanableResource(in));
-					split.add("out", new NonCleanableResource(out));
-
-					processor.submit(split);
+					submit(socketConnection, null);
 					socketConnection = socketAcceptor.accept();
 				}
 				
@@ -256,6 +307,32 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
+		}
+	}
+	
+	private class RequestFinished implements ProcTerminator {
+		@Override
+		public void clean(ProcSplit finalResult) throws Exception {
+			//no special handling here... just unwind
+			finalResult.clean();
+		}
+		@Override
+		public Object extractFinalResult(ProcSplit finalResult) {
+			if (isKeepAlive(finalResult)) {
+				finalResult.removeCleanableResource("HttpExchange");
+				//these won't be cleaned... so don't bother
+//				finalResult.removeCleanableResource("LineStreamer");
+//				finalResult.removeCleanableResource("in");
+//				finalResult.removeCleanableResource("out");
+				
+				keepAlive((StreamingSocketConnection)finalResult.removeCleanableResource("StreamingSocketConnection").get());
+			}
+			return null;
+		}
+		private boolean isKeepAlive(ProcSplit finalResult) {
+			HttpExchangeImpl exchange = (HttpExchangeImpl)finalResult.getResource("HttpExchange");
+			ConnectionPersistor persistor = exchange.getConnectionPersistor();
+			return !persistor.isCloseConnection();
 		}
 	}
 

@@ -21,9 +21,9 @@ public class ContextLookupStage implements SplitProcStage {
 			return last;
 		String operation[] = requestLine.split(" ");
 		HttpContext httpContext = contexts.findContext(operation[1]);//use the URL part to look up the http context
-		if (httpContext != null && httpContext.getHandler() != null) {
-			last.add("HttpContext", new NonCleanableResource(httpContext));
-		}
+		if (httpContext == null)
+			httpContext = contexts.getFailureContext();
+		last.add("HttpContext", new NonCleanableResource(httpContext));
 		return last;
 	}
 	

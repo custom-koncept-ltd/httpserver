@@ -2,17 +2,21 @@ package koncept.http.server.context;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import koncept.http.server.handler.NoContextHandler;
+
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 public class HttpContextHolder {
 
-	private final HttpServer server;
-	CopyOnWriteArrayList<HttpContextImpl> contexts = new CopyOnWriteArrayList<HttpContextImpl>();
+	protected final HttpServer server;
+	protected final CopyOnWriteArrayList<HttpContextImpl> contexts = new CopyOnWriteArrayList<HttpContextImpl>();
+	protected final LookupFailureContext failureContext;
 	
 	public HttpContextHolder(HttpServer server) {
 		this.server = server;
+		failureContext = new LookupFailureContext(server);
 	}
 	
 	public synchronized HttpContext createContext(String path, HttpHandler handler) {
@@ -59,4 +63,14 @@ public class HttpContextHolder {
 		return found;
 	}
 	
+	public HttpContext getFailureContext() {
+		return failureContext;
+	}
+	
+	private static class LookupFailureContext<T extends HttpServer> extends HttpContextImpl<T> {
+		public LookupFailureContext(T server) {
+			super(server, ""); //NO PATH!!
+			setHandler(new NoContextHandler());
+		}
+	}
 }

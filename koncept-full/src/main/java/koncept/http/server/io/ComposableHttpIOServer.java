@@ -14,15 +14,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 import koncept.http.server.ComposableHttpServer;
 import koncept.http.server.ConfigurationOption;
-import koncept.http.server.exchange.HttpExchangeImpl;
 import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.io.LineStreamer;
 import koncept.io.StreamingSocketAcceptor;
 import koncept.io.StreamingSocketConnection;
 import koncept.sp.ProcSplit;
-import koncept.sp.resource.CleanableResource;
 import koncept.sp.resource.NonCleanableResource;
-import koncept.sp.resource.ProcTerminator;
 import koncept.sp.resource.SimpleCloseableResource;
 
 public class ComposableHttpIOServer extends ComposableHttpServer {
@@ -31,15 +28,14 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 	
 	public ComposableHttpIOServer() {
 		super();
-		options.put(KEEP_ALIVE, "");
 		options.put(SOCKET_TIMEOUT, "");
 		keepAlive = new SocketKeepAlive(options);
 		resetOptionsToDefaults();
 	}
 	
 	@Override
-	public KeepAliveProcTerminators getTerminator() {
-		return new KeepAliveProcTerminators();
+	public void keepAlive(StreamingSocketConnection connection) {
+		keepAlive.keepAlive((SocketConnection)connection);
 	}
 	
 	@Override
@@ -53,14 +49,12 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 	@Override
     public void resetOptionsToDefaults() {
 		super.resetOptionsToDefaults();
-    	ConfigurationOption.set(options, KEEP_ALIVE, "true");
     	ConfigurationOption.set(options, SOCKET_TIMEOUT, "1000");
     }
     
     @Override
     public void resetOptionsToJVMStandard() {
     	super.resetOptionsToJVMStandard();
-    	ConfigurationOption.set(options, KEEP_ALIVE, "true");
     	ConfigurationOption.set(options, SOCKET_TIMEOUT, "-1"); //no timeout (?!?)
     }
 
@@ -78,7 +72,13 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 		
 		@Override
 		public StreamingSocketConnection<Socket> accept() throws SocketClosedException, IOException {
-			return new SocketConnection(ss.accept());
+			try {
+				return new SocketConnection(ss.accept());
+			} catch (SocketException e) {
+				if (e.getMessage().equals("socket closed")) {
+					throw new SocketClosedException(e.getMessage(), e);
+				} else throw e;
+			}
 		}
 		
 		@Override
@@ -114,6 +114,16 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 		}
 		
 		@Override
+		public InetSocketAddress localAddress() {
+			return new InetSocketAddress(s.getLocalAddress(), s.getLocalPort());
+		}
+		
+		@Override
+		public InetSocketAddress remoteAddress() {
+			return new InetSocketAddress(s.getInetAddress(), s.getPort());
+		}
+		
+		@Override
 		public void close() throws IOException {
 			s.close();
 		}
@@ -129,8 +139,13 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 		}
 	}
 	
-	private class SocketKeepAlive implements Runnable {
-		public final boolean MODE_SWITCH_ReadIsAsync = false;
+	/**
+	 * This is a hack... need to refactor the stack to allow Connection: Keep-Alive or Connection: Close to be sent with the response headers
+	 * @author koncept
+	 *
+	 */
+	public class SocketKeepAlive implements Runnable {
+		private boolean MODE_SWITCH_ReadIsAsync = false;
 		
 		private final Collection<ZombieSocket> collection; //needs to be a concurrent collection
 		private final Map<ConfigurationOption, String> options;
@@ -140,9 +155,6 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 		public SocketKeepAlive(Collection<ZombieSocket> collection, Map<ConfigurationOption, String> options) {
 			this.collection = collection;
 			this.options = options;
-		}
-		public boolean isKeepAlive() {
-			return Boolean.parseBoolean(options.get(KEEP_ALIVE));
 		}
 		public void keepAlive(SocketConnection s) {
 			try {
@@ -159,9 +171,16 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 				execWithAsyncRead();
 		}
 		
+		public boolean isMODE_SWITCH_ReadIsAsync() {
+			return MODE_SWITCH_ReadIsAsync;
+		}
+		
+		public void setMODE_SWITCH_ReadIsAsync(boolean MODE_SWITCH_ReadIsAsync) {
+			this.MODE_SWITCH_ReadIsAsync = MODE_SWITCH_ReadIsAsync;
+		}
+		
 		public void execWithAsyncRead() {
 			Collection<ZombieSocket> toRemove = new HashSet<>();
-			Collection<ProcSplit> toProcess = new HashSet<>();
 			for(ZombieSocket zs: collection) try {
 				if (zs.isClosed()) {
 					toRemove.add(zs);
@@ -169,15 +188,7 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 					String requestLine = zs.readLineIfAvailable();
 					if (requestLine != null) {
 						toRemove.add(zs);
-						
-						ProcSplit split = new ProcSplit();
-						SocketConnection s = zs.connection();
-						split.add("StreamingSocketConnection", new SimpleCloseableResource(s));
-						split.add("LineStreamer", new NonCleanableResource(zs.lines()));
-						split.add("in", new NonCleanableResource(s.in()));
-						split.add("out", new NonCleanableResource(s.out()));
-						split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
-						toProcess.add(split);
+						reSubmit(zs.connection(), requestLine);
 					} else if (zs.count() > 10) {
 						toRemove.add(zs);
 					}					
@@ -193,9 +204,6 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 			}
 			
 			collection.removeAll(toRemove);
-			for(ProcSplit in: toProcess) {
-				processor.submit(in);
-			}
 			
 			if (!stopRequested.get())
 				executor.execute(this);
@@ -263,37 +271,4 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 			return lines.readLine(0);
 		}
 	}
-	
-	
-	private class KeepAliveProcTerminators<T> implements ProcTerminator<T> {
-		public boolean connectionEligibleForKeepAlive(ProcSplit finalResult) {
-			HttpExchangeImpl exchange = (HttpExchangeImpl)finalResult.getResource("HttpExchange");
-			if (exchange == null) return false;
-			if (exchange.getProtocol()== null) return false;
-			String connecteader = exchange.getRequestHeaders().getFirst("Connection");
-			if (exchange.getProtocol().equalsIgnoreCase("HTTP/1.1")) {
-				if (connecteader != null && connecteader.equalsIgnoreCase("close")) return false;
-				return true;
-			} else if (exchange.getProtocol().equalsIgnoreCase("HTTP/1.0")) {
-				if (connecteader != null && connecteader.equalsIgnoreCase("Keep-Alive")) return true;
-			}
-			return false;
-		}
-		@Override
-		public void clean(ProcSplit finalResult) throws Exception {
-			finalResult.clean();
-		}
-		@Override
-		public T extractFinalResult(ProcSplit finalResult) {
-			if (keepAlive.isKeepAlive() && connectionEligibleForKeepAlive(finalResult)) {
-				CleanableResource socketResource = finalResult.removeCleanableResource("StreamingSocketConnection");
-				finalResult.removeCleanableResource("in"); //also remove the IO streams
-				finalResult.removeCleanableResource("out");
-				SocketConnection s = (SocketConnection)socketResource.get();
-				keepAlive.keepAlive(s);
-			}
-			return null;
-		}
-	}
-
 }

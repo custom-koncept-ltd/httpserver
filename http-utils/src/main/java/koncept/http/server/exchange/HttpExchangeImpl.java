@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.URI;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -18,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import koncept.http.server.Code;
 import koncept.http.server.ConfigurationOption;
+import koncept.http.server.sysfilter.KeepAliveFilter.ConnectionPersistor;
+import koncept.io.StreamingSocketConnection;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
@@ -29,7 +30,7 @@ public class HttpExchangeImpl extends HttpExchange {
 	public static final ConfigurationOption ATTRIBUTE_SCOPE = new ConfigurationOption("httpexchange.attribute.scoping", new String[]{"context", "exchange"});
 	
 	private static final String newLine = "\r\n".intern();
-	private final Socket socket;
+	private final StreamingSocketConnection connection;
 	
 	private final String httpVersion;
 	private final String requestMethod;
@@ -46,8 +47,10 @@ public class HttpExchangeImpl extends HttpExchange {
 	private HttpPrincipal principal;
 	private int responseCode = 0;
 	
-	public HttpExchangeImpl(Socket socket, InputStream in, OutputStream out, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
-		this.socket = socket;
+	private ConnectionPersistor connectionPersistor;
+	
+	public HttpExchangeImpl(StreamingSocketConnection connection, InputStream in, OutputStream out, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
+		this.connection = connection;
 		setStreams(in, out);
 		this.httpVersion = httpVersion;
 		this.requestMethod = requestMethod;
@@ -93,7 +96,7 @@ public class HttpExchangeImpl extends HttpExchange {
 		try {
 			in.close();
 			out.close();
-			socket.close();
+			connection.close();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -124,6 +127,10 @@ public class HttpExchangeImpl extends HttpExchange {
 			throws IOException {
 //		HTTP/1.1 200 OK
 		responseCode = rCode;
+		
+		if (connectionPersistor != null) 
+			connectionPersistor.onResponse(this);
+		
 		PrintStream p = new PrintStream(out);
 		p.print(httpVersion + " " + rCode + Code.msg(rCode));
 		p.print(newLine);
@@ -156,7 +163,7 @@ public class HttpExchangeImpl extends HttpExchange {
 	
 	@Override
 	public InetSocketAddress getRemoteAddress() {
-		return new InetSocketAddress(socket.getInetAddress(), socket.getPort()); 
+		return connection.remoteAddress(); 
 	}
 
 	@Override
@@ -166,7 +173,7 @@ public class HttpExchangeImpl extends HttpExchange {
 
 	@Override
 	public InetSocketAddress getLocalAddress() {
-		return new InetSocketAddress(socket.getLocalAddress(), socket.getLocalPort());
+		return connection.localAddress();
 	}
 
 	@Override
@@ -197,6 +204,14 @@ public class HttpExchangeImpl extends HttpExchange {
 	
 	public void setPrincipal(HttpPrincipal principal) {
 		this.principal = principal;
+	}
+	
+	public ConnectionPersistor getConnectionPersistor() {
+		return connectionPersistor;
+	}
+	
+	public void setConnectionPersistor(ConnectionPersistor connectionPersistor) {
+		this.connectionPersistor = connectionPersistor;
 	}
 
 	

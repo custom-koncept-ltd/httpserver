@@ -65,6 +65,11 @@ public class HttpServerImpl extends ConfigurableHttpServer {
     	server.resetOptionsToJVMStandard();
     }
     
+    @Override
+    public void setOption(ConfigurationOption option, String value) {
+    	server.setOption(option, value);
+    }
+    
     public void bind (InetSocketAddress addr, int backlog) throws IOException {
         server.bind (addr, backlog);
     }

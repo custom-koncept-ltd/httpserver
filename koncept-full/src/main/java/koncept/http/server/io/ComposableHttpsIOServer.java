@@ -83,6 +83,11 @@ public class ComposableHttpsIOServer extends ConfigurableHttpsServer {
 	}
 	
 	@Override
+	public void setOption(ConfigurationOption option, String value) {
+		wrapped.setOption(option, value);
+	}
+	
+	@Override
 	public void bind(InetSocketAddress addr, int backlog) throws IOException {
 		wrapped.bind(addr, backlog);
 	}

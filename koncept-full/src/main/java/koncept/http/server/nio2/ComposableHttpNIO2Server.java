@@ -7,20 +7,29 @@ import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.TimeUnit;
 
 import koncept.http.server.ComposableHttpServer;
+import koncept.io.LineStreamer;
 import koncept.io.StreamingSocketAcceptor;
 import koncept.io.StreamingSocketConnection;
 import koncept.nio2.StreamedByteChannel;
-import koncept.sp.resource.ProcTerminator;
-import koncept.sp.resource.SimpleProcTerminator;
 
 public class ComposableHttpNIO2Server extends ComposableHttpServer {
 	
+	private KeepAlive keepAlive;
+	
+	public ComposableHttpNIO2Server() {
+		keepAlive = new KeepAlive();
+	}
 	
 	@Override
-	public ProcTerminator getTerminator() {
-		return new SimpleProcTerminator(); //TODO... keepalive.... ?
+	public void start() {
+		super.start();
+		executor.submit(keepAlive);
 	}
 	
 	@Override
@@ -32,6 +41,15 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		return new ServerSocketChannelAcceptor(ssChannel);
 	}
 	
+	@Override
+	public void keepAlive(StreamingSocketConnection connection) {
+		try {
+			keepAlive.add((StreamingSocketConnection)connection);
+		} catch (IOException e) {
+			//just don't add it (!!) if an excepton occurs
+			e.printStackTrace();
+		}
+	}
 	
 	public static class ServerSocketChannelAcceptor implements StreamingSocketAcceptor<ServerSocketChannel, SocketChannel> {
 		private final ServerSocketChannel ssChannel;
@@ -72,6 +90,24 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		}
 		
 		@Override
+		public InetSocketAddress localAddress() {
+			try {
+				return (InetSocketAddress)channel.getLocalAddress();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		
+		@Override
+		public InetSocketAddress remoteAddress() {
+			try {
+				return (InetSocketAddress)channel.getRemoteAddress();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		
+		@Override
 		public void close() throws IOException {
 			channel.close();
 		}
@@ -87,4 +123,61 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		}
 	}
 
+class KeepAlive implements Runnable {
+		
+		Collection<KeepAliveDetails> keepAlives;
+		
+		public KeepAlive() {
+			keepAlives = new CopyOnWriteArraySet<>();
+		}
+		
+		public void add(StreamingSocketConnection channel) throws IOException {
+			keepAlives.add(new KeepAliveDetails(channel));
+		}
+		
+		@Override
+		public void run() {
+			Collection<KeepAliveDetails> toRemove = new ArrayList<>();
+			for(KeepAliveDetails details: keepAlives) {
+				try {
+					String requestLine = details.tryReadLine();
+					if(requestLine != null) {
+						reSubmit(details.channel, requestLine);
+						toRemove.add(details);
+					} else if (details.validTill > System.currentTimeMillis()) {
+						toRemove.add(details);
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
+					toRemove.add(details);
+				}
+			}
+
+			keepAlives.removeAll(toRemove);
+			
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+			
+			executor.execute(this);
+		}
+	}
+	
+	class KeepAliveDetails {
+		final long validTill;
+		final StreamingSocketConnection channel;
+		final LineStreamer lineStreamer;
+		public KeepAliveDetails(StreamingSocketConnection channel) throws IOException {
+			this.channel = channel;
+			validTill = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1);
+			lineStreamer = new LineStreamer(channel.in());
+		}
+		
+		public String tryReadLine() throws IOException {
+			return lineStreamer.readLine(0);
+		}
+	}
+	
 }

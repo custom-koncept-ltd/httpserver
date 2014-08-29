@@ -66,6 +66,11 @@ public class HttpsServerImpl extends ConfigurableHttpsServer {
     	server.resetOptionsToJVMStandard();
     }
     
+    @Override
+    public void setOption(ConfigurationOption option, String value) {
+    	server.setOption(option, value);
+    }
+    
     public void setHttpsConfigurator (HttpsConfigurator config) {
         server.setHttpsConfigurator (config);
     }

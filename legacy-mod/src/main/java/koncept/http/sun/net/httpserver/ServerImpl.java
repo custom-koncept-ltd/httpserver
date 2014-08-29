@@ -921,6 +921,13 @@ class ServerImpl implements TimeSource, ConfigurableServer {
     }
     
     @Override
+    public void setOption(ConfigurationOption option, String value) {
+    	if (!options.containsKey(option))
+    		throw new IllegalArgumentException("Option not understood: " + option);
+    	ConfigurationOption.set(options, option, value);
+    }
+    
+    @Override
     public void resetOptionsToDefaults() {
     	ConfigurationOption.set(options, ExchangeImpl.ATTRIBUTE_SCOPE_KEY, "exchange");
     	ConfigurationOption.set(options, FILTER_ORDER, "system-first");
