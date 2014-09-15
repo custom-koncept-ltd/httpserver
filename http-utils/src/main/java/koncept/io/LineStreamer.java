@@ -73,7 +73,7 @@ public class LineStreamer {
 	private byte[] nonBlockingreadBytesToToken(long endTimeMillis) throws IOException {
 		Integer read = null;
 		try {
-			read = nonBlockingRead(endTimeMillis);
+			read = maybeNonBlockingRead(endTimeMillis);
 			while (read != null && read.intValue() != -1) {
 				buff[index] = read.byteValue();
 				recent[offsetRecent] = buff[index];
@@ -89,7 +89,7 @@ public class LineStreamer {
 					stripLength = tokens[tokenIndex].length;
 					break;
 				}
-				 read = nonBlockingRead(endTimeMillis);
+				 read = maybeNonBlockingRead(endTimeMillis);
 			} //end of stream or token reached
 		} catch (SocketTimeoutException e) {
 			//on read timeout, socket will be closed, so just force the abort
@@ -129,7 +129,7 @@ public class LineStreamer {
 		return result;
 	}
 	
-	protected Integer nonBlockingRead(long endTimeMillis) throws IOException {
+	protected Integer maybeNonBlockingRead(long endTimeMillis) throws IOException {
 		try {
 			byte[] b = new byte[1];
 			int read = wrapped.read(b); //**IF** the underlying is non blocking on this read, we will read 0 bytes. otherwise... we are screwed (and need nio or nio2)

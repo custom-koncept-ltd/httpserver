@@ -7,9 +7,9 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 
 public interface StreamingSocketConnection<T> extends Closeable {
-
-	public T underlying();
-	
+//
+//	public T underlying();
+//	
 	public InetSocketAddress localAddress();
 	public InetSocketAddress remoteAddress();
 	

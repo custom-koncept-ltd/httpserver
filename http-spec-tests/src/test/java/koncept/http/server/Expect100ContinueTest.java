@@ -44,6 +44,7 @@ public class Expect100ContinueTest extends ProviderSpecHttpServerTestParameteris
 		try {
 			byte[] postContent = "post=true".getBytes();
 			s = openDirectSocket();
+//			s.setSoTimeout(1000);
 			PrintWriter out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
 			String newLine = "\r\n";
 			out.write("PUT / HTTP/1.1" + newLine);

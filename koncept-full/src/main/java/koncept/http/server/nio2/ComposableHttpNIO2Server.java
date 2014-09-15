@@ -16,7 +16,7 @@ import koncept.http.server.ComposableHttpServer;
 import koncept.io.LineStreamer;
 import koncept.io.StreamingSocketAcceptor;
 import koncept.io.StreamingSocketConnection;
-import koncept.nio2.StreamedByteChannel;
+import koncept.nio.StreamedByteChannel;
 
 public class ComposableHttpNIO2Server extends ComposableHttpServer {
 	
@@ -51,6 +51,11 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		}
 	}
 	
+	@Override
+	public int keptAlive() {
+		return keepAlive.keepAlives.size();
+	}
+	
 	public static class ServerSocketChannelAcceptor implements StreamingSocketAcceptor<ServerSocketChannel, SocketChannel> {
 		private final ServerSocketChannel ssChannel;
 		public ServerSocketChannelAcceptor(ServerSocketChannel ssChannel) {
@@ -83,8 +88,7 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 			this.channel = channel;
 			streams = new StreamedByteChannel(channel);
 		}
-		
-		@Override
+			
 		public SocketChannel underlying() {
 			return channel;
 		}
@@ -109,6 +113,7 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		
 		@Override
 		public void close() throws IOException {
+			System.out.println("SocketChannelConnection close");
 			channel.close();
 		}
 		
@@ -123,7 +128,7 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		}
 	}
 
-class KeepAlive implements Runnable {
+	class KeepAlive implements Runnable {
 		
 		Collection<KeepAliveDetails> keepAlives;
 		
@@ -154,14 +159,20 @@ class KeepAlive implements Runnable {
 			}
 
 			keepAlives.removeAll(toRemove);
+			for(KeepAliveDetails details: toRemove) try {
+				details.channel.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 			
 			try {
-				Thread.sleep(100);
+				Thread.sleep(10);
 			} catch (InterruptedException e) {
 				throw new RuntimeException(e);
 			}
 			
-			executor.execute(this);
+			if (!stopRequested.get())
+				executor.execute(this);
 		}
 	}
 	

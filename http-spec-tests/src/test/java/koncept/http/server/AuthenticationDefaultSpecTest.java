@@ -21,11 +21,6 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class AuthenticationDefaultSpecTest extends DefaultSpecHttpServerTestParameteriser {
-
-	/**
-	 * the auth/challenge/response means that the filter may get hit multiple times
-	 */
-	private static int AUTH_REQUEST_MULTIPLIER = 2;
 	
 	public AuthenticationDefaultSpecTest(HttpServerProvider provider) {
 		super(provider);

@@ -88,6 +88,11 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 	 */
 	public abstract void keepAlive(StreamingSocketConnection connection);
 	
+	/**
+	 * The current count of connections being kept alive
+	 */
+	public abstract int keptAlive();
+	
 	
 	protected void reSubmit(StreamingSocketConnection connection, String requestLine) throws IOException {
 		submit(connection, requestLine);
@@ -261,9 +266,12 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 				long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(secondsDelay);
 				while (
 						System.currentTimeMillis() < endTime && //
-						!processor.tracker().live().isEmpty() && 
-						!processor.tracker().queued().isEmpty()) {
-					Thread.sleep(100);
+						(
+							!processor.tracker().live().isEmpty() ||
+							!processor.tracker().queued().isEmpty() ||
+							keptAlive() != 0
+						)) {
+					Thread.sleep(1);
 				}
 //				processor.stop(true, true, true); //abort anything else thats still running (!!)
 			}
@@ -300,6 +308,12 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 					socketConnection = socketAcceptor.accept();
 				}
 				
+				try {
+					Thread.sleep(0, 1); //nano sleep
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				
 				if (!stopRequested.get())
 					executor.execute(this);
 			} catch (SocketClosedException e) {
@@ -315,10 +329,13 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		public void clean(ProcSplit finalResult) throws Exception {
 			//no special handling here... just unwind
 			finalResult.clean();
+			
 		}
 		@Override
 		public Object extractFinalResult(ProcSplit finalResult) {
-			if (isKeepAlive(finalResult)) {
+			HttpExchangeImpl exchange = (HttpExchangeImpl)finalResult.getResource("HttpExchange");
+			ConnectionPersistor persistor = exchange.getConnectionPersistor();
+			if (persistor != null && !persistor.isCloseConnection()) {
 				finalResult.removeCleanableResource("HttpExchange");
 				//these won't be cleaned... so don't bother
 //				finalResult.removeCleanableResource("LineStreamer");
@@ -328,11 +345,6 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 				keepAlive((StreamingSocketConnection)finalResult.removeCleanableResource("StreamingSocketConnection").get());
 			}
 			return null;
-		}
-		private boolean isKeepAlive(ProcSplit finalResult) {
-			HttpExchangeImpl exchange = (HttpExchangeImpl)finalResult.getResource("HttpExchange");
-			ConnectionPersistor persistor = exchange.getConnectionPersistor();
-			return !persistor.isCloseConnection();
 		}
 	}
 

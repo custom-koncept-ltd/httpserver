@@ -1,4 +1,4 @@
-package koncept.nio2;
+package koncept.nio;
 
 import java.io.Closeable;
 import java.io.Flushable;
@@ -14,6 +14,7 @@ public class StreamedByteChannel implements Closeable, Flushable{
 	private static final int capacity = 1024; //bytes
 	
 	private final ByteChannel chan;
+	private boolean closed = false;
 	private final InputStream in;
 	private final OutputStream out;
 	
@@ -25,9 +26,8 @@ public class StreamedByteChannel implements Closeable, Flushable{
 	
 	@Override
 	public void close() throws IOException {
-		in.close();
-		out.close();
 		chan.close();
+		closed = true;
 	}
 	
 	@Override
@@ -47,11 +47,6 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		return out;
 	}
 	
-	String t() {
-		Thread t = Thread.currentThread();
-		return t.getName();
-	}
-	
 	class Out extends OutputStream {
 		private final ByteBuffer buff = ByteBuffer.allocate(capacity);
 		@Override
@@ -63,25 +58,35 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		
 		@Override
 		public void flush() throws IOException {
-//			System.out.println(this + " in flush " + t());
 			buff.flip();
 			while(buff.hasRemaining()) {
-			    chan.write(buff);
+			    int written = chan.write(buff);
+			    if (written == 0) break;
+			    if (buff.hasRemaining()) try {
+			    	Thread.sleep(1);
+			    } catch (InterruptedException e) {
+			    	e.printStackTrace();
+			    }
 			}
-			buff.clear();
+			buff.compact();
 		}
 		
 		@Override
 		public void close() throws IOException {
-//			System.out.println(this + " in close " + t());
+			//nop
 		}
 	}
 	
 	class In extends InputStream {
 		private final ByteBuffer buff = ByteBuffer.allocate(capacity);
 		
+		public In() {
+			buff.flip();
+		}
+		
 		@Override
 		public int read() throws IOException {
+			if(closed) return -1;
 			if (!buff.hasRemaining()) {
 				poll();
 	        }
@@ -93,6 +98,7 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		
 		@Override
 		public int read(byte[] b, int off, int len) throws IOException {
+			if(closed) return -1;
 			if (!buff.hasRemaining()) {
 				poll();
 	        }
@@ -104,15 +110,19 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		}
 		
 		private void poll() throws IOException {
-			buff.clear();
-			int read = chan.read(buff);
-//			System.out.println(this + " in pull - read " + read + " " + t());
+			buff.compact();
+			chan.read(buff);
 			buff.flip();
 		}
 		
 		@Override
 		public int available() throws IOException {
 			return buff.remaining();
+		}
+		
+		@Override
+		public void close() throws IOException {
+			//nop
 		}
 	}
 	
