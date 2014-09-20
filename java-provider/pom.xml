@@ -12,5 +12,13 @@
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
+	<licenses>
+		<license>
+			<name>GNU General Public License, version 2 (GPL-2.0)</name>
+			<url>http://opensource.org/licenses/GPL-2.0</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
 </project>
 
