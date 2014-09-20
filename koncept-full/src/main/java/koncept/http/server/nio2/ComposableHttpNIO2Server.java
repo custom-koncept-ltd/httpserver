@@ -3,6 +3,7 @@ package koncept.http.server.nio2;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.ServerSocketChannel;
@@ -12,6 +13,7 @@ import java.util.Collection;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 
+import koncept.http.server.Code;
 import koncept.http.server.ComposableHttpServer;
 import koncept.io.LineStreamer;
 import koncept.io.StreamingSocketAcceptor;
@@ -158,11 +160,22 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 				}
 			}
 
-			keepAlives.removeAll(toRemove);
-			for(KeepAliveDetails details: toRemove) try {
-				details.channel.close();
-			} catch (IOException e) {
-				e.printStackTrace();
+			if (!toRemove.isEmpty()) {
+				keepAlives.removeAll(toRemove);
+				String newLine = "\r\n".intern();
+				int rCode = 408;
+				for(KeepAliveDetails details: toRemove) try {
+	//				http://en.wikipedia.org/wiki/List_of_HTTP_status_codes#408
+					PrintStream p = new PrintStream(details.channel.out());
+					p.print("HTTP/1.1 " + rCode + Code.msg(rCode));
+					p.print(newLine);
+					p.print("Connection: close");
+					p.print(newLine);
+					p.flush();
+					details.channel.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 			
 			try {

@@ -1,5 +1,5 @@
 package koncept.http;
 
 
-public class KonceptHttpServerProvider extends KonceptHttpIOServerProvider {
+public class KonceptHttpServerProvider extends KonceptHttpNIO2ServerProvider {
 }

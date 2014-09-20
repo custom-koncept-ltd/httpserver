@@ -51,7 +51,6 @@
 
 	<modules>
 		<module>java-provider</module>
-		<module>legacy-mod</module>
 		<module>http-utils</module>
 		<module>koncept-full</module>
 		<module>http-spec-tests</module>

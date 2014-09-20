@@ -24,11 +24,6 @@
 		</dependency>
 		<dependency>
 			<groupId>com.kncept.httpserver</groupId>
-			<artifactId>legacy-mod</artifactId>
-			<version>1.0.0-SNAPSHOT</version>
-		</dependency>
-		<dependency>
-			<groupId>com.kncept.httpserver</groupId>
 			<artifactId>koncept-full</artifactId>
 			<version>1.0.0-SNAPSHOT</version>
 		</dependency>
