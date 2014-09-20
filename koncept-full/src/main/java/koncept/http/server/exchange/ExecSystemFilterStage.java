@@ -30,10 +30,14 @@ public class ExecSystemFilterStage implements SplitProcStage {
 	}
 	
 	public ProcSplit run(ProcSplit last) throws Exception {
+		DummyHandler handler = new DummyHandler();
 		HttpContext httpContext = (HttpContext)last.getResource("HttpContext");
 		HttpExchange exchange = (HttpExchange)last.getResource("HttpExchange");
-		Filter.Chain filterChain = new Filter.Chain(systemFilters(httpContext, exchange), new DummyHandler());
+		Filter.Chain filterChain = new Filter.Chain(systemFilters(httpContext, exchange), handler);
 		filterChain.doFilter(exchange);
+		if (!handler.handled()) { //little trick to prevent execution of the user filters next
+			last.removeCleanableResource("HttpContext");
+		}
 		return last;
 	}
 	
@@ -42,8 +46,8 @@ public class ExecSystemFilterStage implements SplitProcStage {
 		List<Filter> filters = new ArrayList<>();
 		if (expect100Continue())
 			filters.add(new Expect100ContinueFilter());
-		filters.add(new AuthenticatorFilter());
 		filters.add(new FiniteSizedInputStream());
+		filters.add(new AuthenticatorFilter());
 		filters.add(new KeepAliveFilter(options));
 		return filters;
 	}

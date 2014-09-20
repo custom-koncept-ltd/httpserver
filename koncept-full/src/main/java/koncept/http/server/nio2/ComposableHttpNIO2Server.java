@@ -115,7 +115,6 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		
 		@Override
 		public void close() throws IOException {
-			System.out.println("SocketChannelConnection close");
 			channel.close();
 		}
 		
@@ -161,7 +160,6 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 			}
 
 			if (!toRemove.isEmpty()) {
-				keepAlives.removeAll(toRemove);
 				String newLine = "\r\n".intern();
 				int rCode = 408;
 				for(KeepAliveDetails details: toRemove) try {
@@ -183,6 +181,7 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 			} catch (InterruptedException e) {
 				throw new RuntimeException(e);
 			}
+			keepAlives.removeAll(toRemove);
 			
 			if (!stopRequested.get())
 				executor.execute(this);

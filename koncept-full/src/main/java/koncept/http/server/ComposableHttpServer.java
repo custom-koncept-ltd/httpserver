@@ -287,7 +287,8 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		split.add("StreamingSocketConnection", new SimpleCloseableResource(connection));
 		InputStream in = connection.in();
 		OutputStream out = connection.out();
-		if (requestLine != null) split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
+		if (requestLine != null)
+			split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
 		split.add("LineStreamer", new NonCleanableResource(new LineStreamer(in)));
 		split.add("in", new NonCleanableResource(in));
 		split.add("out", new NonCleanableResource(out));

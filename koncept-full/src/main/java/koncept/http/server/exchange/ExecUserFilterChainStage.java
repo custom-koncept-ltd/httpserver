@@ -25,6 +25,9 @@ public class ExecUserFilterChainStage implements SplitProcStage {
 	
 	public ProcSplit run(ProcSplit last) throws Exception {
 		HttpContext httpContext = (HttpContext)last.getResource("HttpContext");
+		if(httpContext == null) {
+			return last;
+		}
 		HttpExchange exchange = (HttpExchange)last.getResource("HttpExchange");
 		List<Filter> filters = httpContext.getFilters();
 		if (systemFilters != null) {
