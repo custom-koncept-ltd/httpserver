@@ -143,26 +143,30 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		
 		@Override
 		public void run() {
-			Collection<KeepAliveDetails> toRemove = new ArrayList<>();
+			Collection<KeepAliveDetails> toClose = new ArrayList<>();
+			Collection<KeepAliveDetails> handled = new ArrayList<>();
 			for(KeepAliveDetails details: keepAlives) {
 				try {
 					String requestLine = details.tryReadLine();
 					if(requestLine != null) {
 						reSubmit(details.channel, requestLine);
-						toRemove.add(details);
-					} else if (details.validTill > System.currentTimeMillis()) {
-						toRemove.add(details);
+						handled.add(details);
+					} else if (details.validTill < System.currentTimeMillis()) {
+						toClose.add(details);
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
-					toRemove.add(details);
+					toClose.add(details);
 				}
 			}
 
-			if (!toRemove.isEmpty()) {
+			Collection<KeepAliveDetails> toRemove = new ArrayList<>();
+			toRemove.addAll(toClose);
+			toRemove.addAll(handled);
+			if (!toClose.isEmpty()) {
 				String newLine = "\r\n".intern();
 				int rCode = 408;
-				for(KeepAliveDetails details: toRemove) try {
+				for(KeepAliveDetails details: toClose) try {
 	//				http://en.wikipedia.org/wiki/List_of_HTTP_status_codes#408
 					PrintStream p = new PrintStream(details.channel.out());
 					p.print("HTTP/1.1 " + rCode + Code.msg(rCode));
@@ -179,7 +183,8 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 			try {
 				Thread.sleep(10);
 			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
+				if (!stopRequested.get()) //suppress the exception if the server had been stopped
+					throw new RuntimeException(e);
 			}
 			keepAlives.removeAll(toRemove);
 			

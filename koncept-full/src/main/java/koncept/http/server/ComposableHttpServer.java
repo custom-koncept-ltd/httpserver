@@ -312,7 +312,8 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 				try {
 					Thread.sleep(0, 1); //nano sleep
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					if (!stopRequested.get()) //suppress the exception if the server had been stopped
+						e.printStackTrace();
 				}
 				
 				if (!stopRequested.get())
