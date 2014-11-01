@@ -6,6 +6,7 @@ import java.io.IOException;
 
 public interface StreamingSocketAcceptor<T,U> extends Closeable {
 
+	@Deprecated
 	public T underlying();
 	
 	public StreamingSocketConnection<U> accept() throws SocketClosedException, IOException;

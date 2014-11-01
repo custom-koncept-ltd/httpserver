@@ -18,7 +18,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import koncept.http.server.Code;
 import koncept.http.server.ConfigurationOption;
 import koncept.http.server.sysfilter.KeepAliveFilter.ConnectionPersistor;
+import koncept.io.ChunkedOutputStream;
 import koncept.io.StreamingSocketConnection;
+import koncept.io.WrappedInputStream;
+import koncept.io.WrappedOutputStream;
 
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
@@ -30,7 +33,7 @@ public class HttpExchangeImpl extends HttpExchange {
 	public static final ConfigurationOption ATTRIBUTE_SCOPE = new ConfigurationOption("httpexchange.attribute.scoping", new String[]{"context", "exchange"});
 	
 	private static final String newLine = "\r\n".intern();
-	private final StreamingSocketConnection connection;
+	private final StreamingSocketConnection<?> connection;
 	
 	private final String httpVersion;
 	private final String requestMethod;
@@ -46,12 +49,13 @@ public class HttpExchangeImpl extends HttpExchange {
 	
 	private HttpPrincipal principal;
 	private int responseCode = 0;
+	private boolean closed = false;
 	
 	private ConnectionPersistor connectionPersistor;
 	
-	public HttpExchangeImpl(StreamingSocketConnection connection, InputStream in, OutputStream out, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
+	public HttpExchangeImpl(StreamingSocketConnection<?> connection, String httpVersion, String requestMethod, URI requestURI, final HttpContext httpContext, Map<ConfigurationOption, String> options) throws IOException {
 		this.connection = connection;
-		setStreams(in, out);
+		setStreams(new WrappedInputStream(connection.in()), new WrappedOutputStream(connection.out()));
 		this.httpVersion = httpVersion;
 		this.requestMethod = requestMethod;
 		this.requestURI = requestURI;
@@ -93,10 +97,11 @@ public class HttpExchangeImpl extends HttpExchange {
 
 	@Override
 	public void close() {
+		if(closed) return;
 		try {
 			in.close();
 			out.close();
-			connection.close();
+			closed = true;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -135,17 +140,24 @@ public class HttpExchangeImpl extends HttpExchange {
 		p.print(httpVersion + " " + rCode + Code.msg(rCode));
 		p.print(newLine);
 		
+		//responseLength:
+		//-1 = nothing to send
+		//0 = unknown length
+		//n = n bytes
+
 		//insert a content length header
 		if (responseLength != 0 && !"head".equalsIgnoreCase(getRequestMethod())) {
-			responseHeaders.set("Content-length", Long.toString(responseLength== -1 ? 0 : responseLength));
+			responseHeaders.set("Content-Length", Long.toString(responseLength== -1 ? 0 : responseLength));
+		}
+		if (responseLength == 0 && !"head".equalsIgnoreCase(getRequestMethod())) {
+			responseHeaders.set("Transfer-Encoding", "chunked");
 		}
 		
 		String pattern = "EEE, dd MMM yyyy HH:mm:ss zzz";
 	    TimeZone gmtTZ = TimeZone.getTimeZone("GMT");
-	    DateFormat df = new SimpleDateFormat(pattern, Locale.US);
+	    DateFormat df = new SimpleDateFormat(pattern, Locale.UK);
 	    df.setTimeZone(gmtTZ);
 		responseHeaders.set ("Date", df.format (new Date()));
-		
 		
 		//responseHeaders
 		for(String headerName: responseHeaders.keySet()) {
@@ -159,6 +171,11 @@ public class HttpExchangeImpl extends HttpExchange {
 		}
 		p.print(newLine);
 		p.flush();
+		
+		if (responseLength == 0) {
+			((WrappedOutputStream) out).setWrapped(new ChunkedOutputStream(((WrappedOutputStream) out).getWrapped())); //insert a chunked output stream
+		}
+		
 	}
 	
 	@Override
@@ -213,7 +230,5 @@ public class HttpExchangeImpl extends HttpExchange {
 	public void setConnectionPersistor(ConnectionPersistor connectionPersistor) {
 		this.connectionPersistor = connectionPersistor;
 	}
-
-	
 	
 }

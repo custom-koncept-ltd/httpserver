@@ -9,14 +9,17 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 
 
-public class StreamedByteChannel implements Closeable, Flushable{
+public class StreamedByteChannel implements Closeable, Flushable {
 
 	private static final int capacity = 1024; //bytes
 	
 	private final ByteChannel chan;
 	private boolean closed = false;
-	private final InputStream in;
-	private final OutputStream out;
+	private final In in;
+	private final Out out;
+	
+	private long readTimeout = 10;  //-1 = no timeout, 0 or more = elapsed ms timeout
+	private long writeTimeout = 10; //-1 = no timeout, 0 or more = elapsed ms timeout
 	
 	public StreamedByteChannel(ByteChannel chan) {
 		this.chan = chan;
@@ -26,6 +29,7 @@ public class StreamedByteChannel implements Closeable, Flushable{
 	
 	@Override
 	public void close() throws IOException {
+		out.flush();
 		chan.close();
 		closed = true;
 	}
@@ -33,10 +37,6 @@ public class StreamedByteChannel implements Closeable, Flushable{
 	@Override
 	public void flush() throws IOException {
 		out.flush();
-	}
-	
-	public ByteChannel getChan() {
-		return chan;
 	}
 	
 	public InputStream getIn() {
@@ -47,28 +47,52 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		return out;
 	}
 	
-	class Out extends OutputStream {
+	public class Out extends OutputStream {
 		private final ByteBuffer buff = ByteBuffer.allocate(capacity);
 		@Override
 		public void write(int b) throws IOException {
+			if(!buff.hasRemaining()) {
+				if (writeTimeout >= 0) {
+					long timeout = System.currentTimeMillis() + writeTimeout;
+					while (!buff.hasRemaining() && timeout > System.currentTimeMillis())
+						flush();
+				} else { //no timeout
+					while (!buff.hasRemaining())
+						flush();
+				}
+			}
+			
 			buff.put((byte)b);
-			if(buff.limit() == 0)
+			if(!buff.hasRemaining())
 				flush();
 		}
 		
 		@Override
 		public void flush() throws IOException {
-			buff.flip();
-			while(buff.hasRemaining()) {
-			    int written = chan.write(buff);
-			    if (written == 0) break;
-			    if (buff.hasRemaining()) try {
-			    	Thread.sleep(1);
-			    } catch (InterruptedException e) {
-			    	e.printStackTrace();
-			    }
+			if (buff.position() == 0) 
+				return; //nothing to do
+			buff.flip(); //pos will now be 0
+			chan.write(buff);
+			if (buff.position() == 0) {
+				if (writeTimeout >= 0) {
+					long timeout = System.currentTimeMillis() + writeTimeout;
+					while (buff.position() == 0 && timeout > System.currentTimeMillis())
+						chan.write(buff);
+				} else { //no timeout
+					while (buff.position() == 0)
+						chan.write(buff);
+				}
 			}
+//			if (written == 0) close(); // close the stream?
 			buff.compact();
+		}
+		
+		public long writeTimeout() {
+			return writeTimeout;
+		}
+		
+		public void writeTimeout(long writeTimeout) {
+			StreamedByteChannel.this.writeTimeout = writeTimeout;
 		}
 		
 		@Override
@@ -77,7 +101,7 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		}
 	}
 	
-	class In extends InputStream {
+	public class In extends InputStream {
 		private final ByteBuffer buff = ByteBuffer.allocate(capacity);
 		
 		public In() {
@@ -111,8 +135,31 @@ public class StreamedByteChannel implements Closeable, Flushable{
 		
 		private void poll() throws IOException {
 			buff.compact();
+			int currentPos = buff.position();
+			
+			//initial read
 			chan.read(buff);
+			if (buff.position() == currentPos) {
+				if (readTimeout >= 0) {
+					long timeout = System.currentTimeMillis() + readTimeout;
+					while (buff.position() == currentPos && timeout > System.currentTimeMillis()) 
+						 chan.read(buff);
+				} else { //no timeout
+					while (buff.position() == currentPos) 
+						 chan.read(buff);
+				}
+			}
+			
+//			if (read == -1) close(); //close the stream?
 			buff.flip();
+		}
+		
+		public long readTimeout() {
+			return readTimeout;
+		}
+		
+		public void readTimeout(long readTimeout) {
+			StreamedByteChannel.this.readTimeout = readTimeout;
 		}
 		
 		@Override

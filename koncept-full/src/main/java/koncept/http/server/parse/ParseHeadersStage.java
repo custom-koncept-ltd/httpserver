@@ -1,7 +1,5 @@
 package koncept.http.server.parse;
 
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.util.Map;
 
@@ -26,16 +24,15 @@ public class ParseHeadersStage implements SplitProcStage {
 		StreamingSocketConnection connection = (StreamingSocketConnection)last.getResource("StreamingSocketConnection");
 //		Socket socket = (Socket)last.getResource("Socket");
 		String requestLine = (String)last.getResource(ReadRequestLineStage.RequestLine);
-		if (requestLine == null) return last; //abort(!!)
+		if (requestLine == null)
+			return last; //abort. TODO: need an actual 'abort' or 'cancel' option
 		LineStreamer lines = (LineStreamer)last.getResource("LineStreamer");
-		InputStream in = (InputStream)last.getResource("in");
-		OutputStream out = (OutputStream)last.getResource("out");
 		HttpContext httpContext = (HttpContext)last.getResource("HttpContext");
 
 		String operation[] = requestLine.split(" ");
 		String httpType = operation.length == 3 ? operation[2] : ""; //TODO
 		
-		HttpExchangeImpl exchange = new HttpExchangeImpl(connection, in, out, httpType, operation[0], new URI(operation[1]), httpContext, options);
+		HttpExchangeImpl exchange = new HttpExchangeImpl(connection, httpType, operation[0], new URI(operation[1]), httpContext, options);
 		
 		//handle headers
 		String line = lines.readLine();

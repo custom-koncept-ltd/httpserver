@@ -84,38 +84,29 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 	}
 	
 	public static class SocketChannelConnection implements StreamingSocketConnection<SocketChannel> {
-		private final SocketChannel channel;
 		private final StreamedByteChannel streams;
-		public SocketChannelConnection(SocketChannel channel) {
-			this.channel = channel;
+		private final InetSocketAddress localAddress;
+		private final InetSocketAddress remoteAddress;
+		public SocketChannelConnection(SocketChannel channel) throws IOException {
+			channel.configureBlocking(false);
+			localAddress = (InetSocketAddress)channel.getLocalAddress();
+			remoteAddress = (InetSocketAddress)channel.getRemoteAddress();
 			streams = new StreamedByteChannel(channel);
-		}
-			
-		public SocketChannel underlying() {
-			return channel;
 		}
 		
 		@Override
 		public InetSocketAddress localAddress() {
-			try {
-				return (InetSocketAddress)channel.getLocalAddress();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
+			return localAddress;
 		}
 		
 		@Override
 		public InetSocketAddress remoteAddress() {
-			try {
-				return (InetSocketAddress)channel.getRemoteAddress();
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
+			return remoteAddress;
 		}
 		
 		@Override
 		public void close() throws IOException {
-			channel.close();
+			streams.close();
 		}
 		
 		@Override
@@ -165,7 +156,7 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 			toRemove.addAll(handled);
 			if (!toClose.isEmpty()) {
 				String newLine = "\r\n".intern();
-				int rCode = 408;
+				int rCode = Code.HTTP_CLIENT_TIMEOUT; //408
 				for(KeepAliveDetails details: toClose) try {
 	//				http://en.wikipedia.org/wiki/List_of_HTTP_status_codes#408
 					PrintStream p = new PrintStream(details.channel.out());
@@ -174,6 +165,7 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 					p.print("Connection: close");
 					p.print(newLine);
 					p.flush();
+					System.err.println(getClass().getSimpleName() + " closing a channel w/ timeout");
 					details.channel.close();
 				} catch (IOException e) {
 					e.printStackTrace();

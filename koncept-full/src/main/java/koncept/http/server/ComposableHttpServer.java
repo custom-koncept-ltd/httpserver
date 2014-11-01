@@ -47,6 +47,7 @@ import com.sun.net.httpserver.HttpServer;
 public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 	public static final ConfigurationOption SOCKET_TIMEOUT = new ConfigurationOption("socket.SO_TIMEOUT ", "-1", "0", "500", "1000", "30000");
 	public static final ConfigurationOption ALLOW_REUSE_SOCKET = new ConfigurationOption("socket.SO_REUSEADDR", "true", "false", "none");
+	@Deprecated
 	public static final ConfigurationOption FILTER_ORDER = new ConfigurationOption("server.filter-order", "system-first", "system-last");
 	public static final ConfigurationOption EXPECT_100_CONTINUE = new ConfigurationOption("server.expect-100-continue", "true", "false");
 	
@@ -282,17 +283,22 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		}
 	}
 	
+	/**
+	 * Submits the connection for execution
+	 * @param connection
+	 * @param requestLine - if a request line has been read, a value (i.e. on keep-alive)... else null (i.e. new connection)
+	 * @throws IOException
+	 */
 	private void submit(StreamingSocketConnection connection, String requestLine) throws IOException {
 		ProcSplit split = new ProcSplit();
 		split.add("StreamingSocketConnection", new SimpleCloseableResource(connection));
 		InputStream in = connection.in();
 		OutputStream out = connection.out();
-		if (requestLine != null)
-			split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
 		split.add("LineStreamer", new NonCleanableResource(new LineStreamer(in)));
 		split.add("in", new NonCleanableResource(in));
 		split.add("out", new NonCleanableResource(out));
-
+		if(requestLine != null)
+			split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
 		processor.submit(split);
 	}
 	
@@ -336,15 +342,19 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		@Override
 		public Object extractFinalResult(ProcSplit finalResult) {
 			HttpExchangeImpl exchange = (HttpExchangeImpl)finalResult.getResource("HttpExchange");
+			if (exchange == null)
+				return null;
 			ConnectionPersistor persistor = exchange.getConnectionPersistor();
 			if (persistor != null && !persistor.isCloseConnection()) {
 				finalResult.removeCleanableResource("HttpExchange");
 				//these won't be cleaned... so don't bother
 //				finalResult.removeCleanableResource("LineStreamer");
 //				finalResult.removeCleanableResource("in");
-//				finalResult.removeCleanableResource("out");
-				
+//				finalResult.removeCleanableResource("out")
+				exchange.close();
 				keepAlive((StreamingSocketConnection)finalResult.removeCleanableResource("StreamingSocketConnection").get());
+			} else {
+				exchange.close();
 			}
 			return null;
 		}

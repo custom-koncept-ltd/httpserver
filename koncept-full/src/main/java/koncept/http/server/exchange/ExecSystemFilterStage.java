@@ -7,6 +7,7 @@ import java.util.Map;
 import koncept.http.server.ConfigurationOption;
 import koncept.http.server.handler.DummyHandler;
 import koncept.http.server.io.ComposableHttpIOServer;
+import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.http.server.sysfilter.AuthenticatorFilter;
 import koncept.http.server.sysfilter.Expect100ContinueFilter;
 import koncept.http.server.sysfilter.FiniteSizedInputStream;
@@ -15,7 +16,6 @@ import koncept.sp.ProcSplit;
 import koncept.sp.stage.SplitProcStage;
 
 import com.sun.net.httpserver.Filter;
-import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;
 
 public class ExecSystemFilterStage implements SplitProcStage {
@@ -30,10 +30,11 @@ public class ExecSystemFilterStage implements SplitProcStage {
 	}
 	
 	public ProcSplit run(ProcSplit last) throws Exception {
+		if (!last.getResourceNames().contains(ReadRequestLineStage.RequestLine))
+			return last; //nothing to do
 		DummyHandler handler = new DummyHandler();
-		HttpContext httpContext = (HttpContext)last.getResource("HttpContext");
 		HttpExchange exchange = (HttpExchange)last.getResource("HttpExchange");
-		Filter.Chain filterChain = new Filter.Chain(systemFilters(httpContext, exchange), handler);
+		Filter.Chain filterChain = new Filter.Chain(systemFilters(), handler);
 		filterChain.doFilter(exchange);
 		if (!handler.handled()) { //little trick to prevent execution of the user filters next
 			last.removeCleanableResource("HttpContext");
@@ -42,13 +43,13 @@ public class ExecSystemFilterStage implements SplitProcStage {
 	}
 	
 	
-	public List<Filter> systemFilters(HttpContext httpContext, HttpExchange exchange) {
+	public List<Filter> systemFilters() {
 		List<Filter> filters = new ArrayList<>();
 		if (expect100Continue())
 			filters.add(new Expect100ContinueFilter());
 		filters.add(new FiniteSizedInputStream());
-		filters.add(new AuthenticatorFilter());
 		filters.add(new KeepAliveFilter(options));
+		filters.add(new AuthenticatorFilter());
 		return filters;
 	}
 	

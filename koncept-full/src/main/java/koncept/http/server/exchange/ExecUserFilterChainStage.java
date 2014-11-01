@@ -3,6 +3,7 @@ package koncept.http.server.exchange;
 import java.util.ArrayList;
 import java.util.List;
 
+import koncept.http.server.parse.ReadRequestLineStage;
 import koncept.sp.ProcSplit;
 import koncept.sp.stage.SplitProcStage;
 
@@ -25,13 +26,15 @@ public class ExecUserFilterChainStage implements SplitProcStage {
 	
 	public ProcSplit run(ProcSplit last) throws Exception {
 		HttpContext httpContext = (HttpContext)last.getResource("HttpContext");
-		if(httpContext == null) {
+		if(httpContext == null)
 			return last;
-		}
+		if (!last.getResourceNames().contains(ReadRequestLineStage.RequestLine))
+			return last; //nothing to do
+		
 		HttpExchange exchange = (HttpExchange)last.getResource("HttpExchange");
 		List<Filter> filters = httpContext.getFilters();
 		if (systemFilters != null) {
-			List<Filter> systemFilters = this.systemFilters.systemFilters(httpContext, exchange);
+			List<Filter> systemFilters = this.systemFilters.systemFilters();
 			List<Filter> userFilters = filters;
 			filters = new ArrayList<>(filters.size() + systemFilters.size());
 			filters.addAll(userFilters);

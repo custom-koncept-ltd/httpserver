@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>com.kncept.httpserver</groupId>
 		<artifactId>http-parent</artifactId>
-		<version>1.0.0</version>
+		<version>1.0.1</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
@@ -21,7 +21,7 @@
 		<dependency>
 			<groupId>com.kncept.httpserver</groupId>
 			<artifactId>http-utils</artifactId>
-			<version>1.0.0</version>
+			<version>${project.parent.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.kncept.sp</groupId>
