@@ -165,7 +165,6 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 					p.print("Connection: close");
 					p.print(newLine);
 					p.flush();
-					System.err.println(getClass().getSimpleName() + " closing a channel w/ timeout");
 					details.channel.close();
 				} catch (IOException e) {
 					e.printStackTrace();
