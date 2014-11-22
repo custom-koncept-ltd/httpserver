@@ -105,6 +105,14 @@ public class ComposableHttpIOServer extends ComposableHttpServer {
 			
 		}
 		
+		@Override
+		public void setReadTimeout(long readTimeout) {
+		}
+		
+		@Override
+		public void setWriteTimeout(long writeTimeout) {
+		}
+		
 		public void onRebind() throws SocketException {
 			int timeout = new Integer(options.get(SOCKET_TIMEOUT));
 			if (timeout != -1)

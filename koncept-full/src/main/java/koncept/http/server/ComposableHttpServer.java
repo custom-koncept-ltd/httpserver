@@ -70,6 +70,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		options.put(FILTER_ORDER, "");
 		options.put(KEEP_ALIVE, "");
 		options.put(EXPECT_100_CONTINUE, "");
+		options.put(SOCKET_TIMEOUT, "");
 		resetOptionsToDefaults();
 	}
 	
@@ -95,11 +96,10 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 	public abstract int keptAlive();
 	
 	
+	
 	protected void reSubmit(StreamingSocketConnection connection, String requestLine) throws IOException {
 		submit(connection, requestLine);
 	}
-	
-	
 	
 	public HttpServer getHttpServer() {
 		return this;
@@ -121,6 +121,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
     	ConfigurationOption.set(options, FILTER_ORDER, "system-first");
     	ConfigurationOption.set(options, EXPECT_100_CONTINUE, "true");
     	ConfigurationOption.set(options, KEEP_ALIVE, "true");
+    	ConfigurationOption.set(options, SOCKET_TIMEOUT, "30000");
     	
     }
     
@@ -131,6 +132,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
     	ConfigurationOption.set(options, FILTER_ORDER, "system-last");
     	ConfigurationOption.set(options, EXPECT_100_CONTINUE, "true");
     	ConfigurationOption.set(options, KEEP_ALIVE, "true");
+    	ConfigurationOption.set(options, SOCKET_TIMEOUT, "30000");
     }
     
     @Override
@@ -225,7 +227,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 				stages.add(new ExecUserFilterChainStage(new ExecSystemFilterStage(options)));
 			}
 			
-			processor = new SingleExecutorProcPipe(
+			processor = new SingleExecutorProcPipe (
 					Logger.getLogger(ComposableHttpServer.class.getName()),
 					new BlockingJobTracker(),
 					executor,
@@ -289,7 +291,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 	 * @param requestLine - if a request line has been read, a value (i.e. on keep-alive)... else null (i.e. new connection)
 	 * @throws IOException
 	 */
-	private void submit(StreamingSocketConnection connection, String requestLine) throws IOException {
+	private void submit(StreamingSocketConnection<?> connection, String requestLine) throws IOException {
 		ProcSplit split = new ProcSplit();
 		split.add("StreamingSocketConnection", new SimpleCloseableResource(connection));
 		InputStream in = connection.in();
@@ -299,6 +301,12 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		split.add("out", new NonCleanableResource(out));
 		if(requestLine != null)
 			split.add(ReadRequestLineStage.RequestLine, new NonCleanableResource(requestLine));
+		
+		//ensure that IO timeouts are set correctly
+		Long timeoutInteger = new Long(options.get(SOCKET_TIMEOUT));
+		connection.setReadTimeout(timeoutInteger);
+		connection.setWriteTimeout(timeoutInteger);
+		
 		processor.submit(split);
 	}
 	
@@ -309,7 +317,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 		}
 		public void run() {
 			try {
-				StreamingSocketConnection socketConnection = socketAcceptor.accept();
+				StreamingSocketConnection<?> socketConnection = socketAcceptor.accept();
 				while (socketConnection != null && !stopRequested.get()) {
 					submit(socketConnection, null);
 					socketConnection = socketAcceptor.accept();
@@ -352,7 +360,7 @@ public abstract class ComposableHttpServer extends ConfigurableHttpServer {
 //				finalResult.removeCleanableResource("in");
 //				finalResult.removeCleanableResource("out")
 				exchange.close();
-				keepAlive((StreamingSocketConnection)finalResult.removeCleanableResource("StreamingSocketConnection").get());
+				keepAlive((StreamingSocketConnection<?>)finalResult.removeCleanableResource("StreamingSocketConnection").get());
 			} else {
 				exchange.close();
 			}

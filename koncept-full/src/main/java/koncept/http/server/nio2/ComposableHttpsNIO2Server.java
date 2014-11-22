@@ -226,6 +226,16 @@ public class ComposableHttpsNIO2Server extends ConfigurableHttpsServer {
 		public OutputStream out() throws IOException {
 			return streams.getOut();
 		}
+		
+		@Override
+		public void setWriteTimeout(long writeTimeout) {
+			streams.setWriteTimeout(writeTimeout);
+		}
+		
+		@Override
+		public void setReadTimeout(long readTimeout) {
+			streams.setReadTimeout(readTimeout);
+		}
 	}
 	
 	static class SSLByteChannel implements ByteChannel {

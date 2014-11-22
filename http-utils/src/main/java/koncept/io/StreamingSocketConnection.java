@@ -16,6 +16,9 @@ public interface StreamingSocketConnection<T> extends Closeable {
 	public InputStream in() throws IOException;
 	public OutputStream out() throws IOException;
 	
+	
+	public void setWriteTimeout(long writeTimeout);
+	public void setReadTimeout(long readTimeout);
 	//Inetlocaladdress
 	
 }

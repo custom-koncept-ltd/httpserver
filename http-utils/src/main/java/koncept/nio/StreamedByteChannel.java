@@ -14,12 +14,12 @@ public class StreamedByteChannel implements Closeable, Flushable {
 	private static final int capacity = 1024; //bytes
 	
 	private final ByteChannel chan;
-	private boolean closed = false;
+	private volatile boolean closed = false;
 	private final In in;
 	private final Out out;
 	
-	private long readTimeout = -1; //100;  //-1 = no timeout, 0 or more = elapsed ms timeout
-	private long writeTimeout = -1; //100; //-1 = no timeout, 0 or more = elapsed ms timeout
+	private long readTimeout = -1;  //-1 = no timeout, 0 or more = elapsed ms timeout
+	private long writeTimeout = -1; //-1 = no timeout, 0 or more = elapsed ms timeout
 	
 	public StreamedByteChannel(ByteChannel chan) {
 		this.chan = chan;
@@ -47,6 +47,14 @@ public class StreamedByteChannel implements Closeable, Flushable {
 		return out;
 	}
 	
+	public void setWriteTimeout(long writeTimeout) {
+		this.writeTimeout = writeTimeout;
+	}
+	
+	public void setReadTimeout(long readTimeout) {
+		this.readTimeout = readTimeout;
+	}
+	
 	public class Out extends OutputStream {
 		private final ByteBuffer buff = ByteBuffer.allocate(capacity);
 		@Override
@@ -54,10 +62,10 @@ public class StreamedByteChannel implements Closeable, Flushable {
 			if(!buff.hasRemaining()) {
 				if (writeTimeout >= 0) {
 					long timeout = System.currentTimeMillis() + writeTimeout;
-					while (!buff.hasRemaining() && timeout > System.currentTimeMillis())
+					while (!buff.hasRemaining() && timeout > System.currentTimeMillis() && !closed)
 						flush();
 				} else { //no timeout
-					while (!buff.hasRemaining())
+					while (!buff.hasRemaining() && !closed)
 						flush();
 				}
 			}
@@ -72,19 +80,24 @@ public class StreamedByteChannel implements Closeable, Flushable {
 			if (buff.position() == 0) 
 				return; //nothing to do
 			buff.flip(); //pos will now be 0
-			chan.write(buff);
-			if (buff.position() == 0) {
-				if (writeTimeout >= 0) {
-					long timeout = System.currentTimeMillis() + writeTimeout;
-					while (buff.position() == 0 && timeout > System.currentTimeMillis())
-						chan.write(buff);
-				} else { //no timeout
-					while (buff.position() == 0)
-						chan.write(buff);
+			try {
+				chan.write(buff);
+				if (buff.position() == 0) {
+					if (writeTimeout >= 0) {
+						long timeout = System.currentTimeMillis() + writeTimeout;
+						while (buff.position() == 0 && timeout > System.currentTimeMillis() && !closed)
+							chan.write(buff);
+					} else { //no timeout
+						while (buff.position() == 0 && !closed)
+							chan.write(buff);
+					}
 				}
-			}
-//			if (written == 0) close(); // close the stream?
+			} catch (IOException e) {
+				closed = true;
+				throw e;
+			} finally {
 			buff.compact();
+			}
 		}
 		
 		public long writeTimeout() {
@@ -97,7 +110,7 @@ public class StreamedByteChannel implements Closeable, Flushable {
 		
 		@Override
 		public void close() throws IOException {
-			//nop
+//			StreamedByteChannel.this.close();
 		}
 	}
 	
@@ -111,7 +124,7 @@ public class StreamedByteChannel implements Closeable, Flushable {
 		@Override
 		public int read() throws IOException {
 			if(closed) return -1;
-			if (!buff.hasRemaining()) {
+			if (!buff.hasRemaining() ) {
 				poll(true);
 	        }
 			if (!buff.hasRemaining()) {
@@ -135,23 +148,27 @@ public class StreamedByteChannel implements Closeable, Flushable {
 		
 		private void poll(boolean eligibleForWait) throws IOException {
 			buff.compact();
-			int currentPos = buff.position();
-			
-			//initial read
-			chan.read(buff);
-			if (eligibleForWait && buff.position() == currentPos) {
-				if (readTimeout >= 0) {
-					long timeout = System.currentTimeMillis() + readTimeout;
-					while (buff.position() == currentPos && timeout > System.currentTimeMillis()) 
-						 chan.read(buff);
-				} else { //no timeout
-					while (buff.position() == currentPos) 
-						 chan.read(buff);
+			try {
+				int currentPos = buff.position();
+				
+				//initial read
+				chan.read(buff);
+				if (eligibleForWait && buff.position() == currentPos) {
+					if (readTimeout >= 0) {
+						long timeout = System.currentTimeMillis() + readTimeout;
+						while (buff.position() == currentPos && timeout > System.currentTimeMillis() && !closed) 
+							 chan.read(buff);
+					} else { //no timeout
+						while (buff.position() == currentPos && !closed) 
+							 chan.read(buff);
+					}
 				}
+			} catch (IOException e) {
+				closed = true;
+				throw e;
+			} finally {
+				buff.flip();
 			}
-			
-//			if (read == -1) close(); //close the stream?
-			buff.flip();
 		}
 		
 		public long readTimeout() {
@@ -169,7 +186,7 @@ public class StreamedByteChannel implements Closeable, Flushable {
 		
 		@Override
 		public void close() throws IOException {
-			//nop
+//			StreamedByteChannel.this.close();
 		}
 	}
 	

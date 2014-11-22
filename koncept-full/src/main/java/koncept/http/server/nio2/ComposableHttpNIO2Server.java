@@ -118,6 +118,16 @@ public class ComposableHttpNIO2Server extends ComposableHttpServer {
 		public OutputStream out() throws IOException {
 			return streams.getOut();
 		}
+		
+		@Override
+		public void setWriteTimeout(long writeTimeout) {
+			streams.setWriteTimeout(writeTimeout);
+		}
+		
+		@Override
+		public void setReadTimeout(long readTimeout) {
+			streams.setReadTimeout(readTimeout);
+		}
 	}
 
 	class KeepAlive implements Runnable {
